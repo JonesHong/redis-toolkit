@@ -1,0 +1,13 @@
+# Redis Toolkit 核心依赖
+redis>=4.0.0
+
+# 可选依赖（根据需要安装）
+# numpy>=1.19.0          # 数值计算和数组处理
+# Pillow>=8.0.0          # 图像处理支持
+
+# 开发和测试依赖（pip install redis-toolkit[dev]）
+# pytest>=6.0
+# pytest-cov>=2.0
+# black>=21.0
+# flake8>=3.8
+# mypy>=0.910
