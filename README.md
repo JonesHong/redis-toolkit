@@ -15,7 +15,7 @@
   <a href="https://github.com/JonesHong/redis-toolkit/blob/main/LICENSE">
     <img alt="License" src="https://img.shields.io/github/license/JonesHong/redis-toolkit.svg">
   </a>
-  <a href="https://deepwiki.com/JonesHong/pystorex"><img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki"></a>
+  <a href="https://deepwiki.com/JonesHong/redis-toolkit"><img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki"></a>
 </p>
 
 
