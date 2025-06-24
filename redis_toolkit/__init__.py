@@ -11,7 +11,7 @@ from .options import RedisOptions, RedisConnectionConfig, DEFAULT_OPTIONS
 from .exceptions import RedisToolkitError, SerializationError
 from .utils import simple_retry, serialize_value, deserialize_value
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 __author__ = "Redis Toolkit Team"
 __description__ = "增強版 Redis 工具包，支援多類型資料自動序列化"
 

@@ -171,7 +171,7 @@ def external_redis_example():
     # 使用 RedisToolkit 的增強功能
     enhanced_data = {
         "框架": "redis-toolkit",
-        "版本": "0.1.0", 
+        "版本": "0.1.1", 
         "特色": ["自動序列化", "發布訂閱", "音視訊友善"]
     }
     toolkit.setter("增強_資料", enhanced_data)
