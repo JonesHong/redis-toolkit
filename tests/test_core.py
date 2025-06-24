@@ -309,7 +309,7 @@ class TestRedisToolkitConfig:
         import redis
         
         # 建立自訂 Redis 客戶端
-        custom_redis = redis.Redis(host='localhost', port=51201, db=1, decode_responses=False)
+        custom_redis = redis.Redis(host='localhost', port=6379, db=1, decode_responses=False)
         
         toolkit = RedisToolkit(
             redis_client=custom_redis,

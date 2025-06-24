@@ -44,10 +44,14 @@ setup(
         "Topic :: Database",
         "Topic :: Software Development :: Libraries :: Python Modules",
         "Topic :: System :: Distributed Computing",
+        "Topic :: Multimedia :: Graphics",
+        "Topic :: Multimedia :: Sound/Audio",
+        "Topic :: Multimedia :: Video",
     ],
     python_requires=">=3.7",
     install_requires=read_requirements(),
     extras_require={
+        # 開發依賴
         'dev': [
             'pytest>=6.0',
             'pytest-cov>=2.0',
@@ -56,19 +60,62 @@ setup(
             'mypy>=0.910',
             'pre-commit>=2.15',
         ],
-        'audio': [
+        
+        # 圖片處理依賴（包含 OpenCV）
+        'cv2': [
+            'opencv-python>=4.5.0',
             'numpy>=1.19.0',
         ],
-        'all': [
+        
+        # 音頻處理依賴（基礎）
+        'audio': [
             'numpy>=1.19.0',
+            'scipy>=1.7.0',
+        ],
+        
+        # 音頻處理依賴（進階，包含 MP3 支援）
+        'audio-full': [
+            'numpy>=1.19.0',
+            'scipy>=1.7.0',
+            'soundfile>=0.10.0',
+        ],
+        
+        # 圖片處理依賴（包含 PIL）
+        'image': [
+            'opencv-python>=4.5.0',
+            'numpy>=1.19.0',
+            'Pillow>=8.0.0',
+        ],
+        
+        # 視頻處理依賴（使用 OpenCV）
+        'video': [
+            'opencv-python>=4.5.0',
+            'numpy>=1.19.0',
+        ],
+        
+        # 媒體處理完整套件
+        'media': [
+            'opencv-python>=4.5.0',
+            'numpy>=1.19.0',
+            'scipy>=1.7.0',
+            'soundfile>=0.10.0',
+            'Pillow>=8.0.0',
+        ],
+        
+        # 所有可選依賴
+        'all': [
+            'opencv-python>=4.5.0',
+            'numpy>=1.19.0',
+            'scipy>=1.7.0',
+            'soundfile>=0.10.0',
             'Pillow>=8.0.0',
         ]
     },
-    keywords="redis, toolkit, pubsub, serialization, buffer, audio, video",
+    keywords="redis, toolkit, pubsub, serialization, buffer, audio, video, image, converter",
     project_urls={
-        "Bug Reports": "https://github.com/yourusername/redis-toolkit/issues",
-        "Source": "https://github.com/yourusername/redis-toolkit",
-        "Documentation": "https://redis-toolkit.readthedocs.io/",
+        "Bug Reports": "https://github.com/JonesHong/redis-toolkit/issues",
+        "Source": "https://github.com/JonesHong/redis-toolkit",
+        # "Documentation": "https://redis-toolkit.readthedocs.io/",
     },
     include_package_data=True,
     zip_safe=False,

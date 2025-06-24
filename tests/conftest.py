@@ -18,7 +18,7 @@ logging.basicConfig(level=logging.WARNING)
 def redis_available():
     """檢查 Redis 是否可用"""
     try:
-        client = redis.Redis(host='localhost', port=51201, db=0)
+        client = redis.Redis(host='localhost', port=6379, db=0)
         client.ping()
         return True
     except (redis.ConnectionError, redis.TimeoutError):
@@ -28,7 +28,7 @@ def redis_available():
 @pytest.fixture
 def redis_client():
     """提供 Redis 客戶端實例"""
-    client = redis.Redis(host='localhost', port=51201, db=15, decode_responses=False)  # 使用測試專用 DB
+    client = redis.Redis(host='localhost', port=6379, db=15, decode_responses=False)  # 使用測試專用 DB
     yield client
     # 清理測試資料
     try:
@@ -52,7 +52,7 @@ def toolkit_with_custom_db():
     """提供使用自訂資料庫的 RedisToolkit 實例"""
     from redis_toolkit import RedisConnectionConfig
     
-    config = RedisConnectionConfig(host='localhost', port=51201, db=14)
+    config = RedisConnectionConfig(host='localhost', port=6379, db=14)
     instance = RedisToolkit(
         config=config,
         options=RedisOptions(is_logger_info=False)

@@ -38,3 +38,26 @@ __all__ = [
     # 版本資訊
     '__version__',
 ]
+
+# 可選轉換器功能 - 延遲載入，避免強制依賴
+def _try_import_converters():
+    """嘗試匯入轉換器功能，失敗時靜默忽略"""
+    try:
+        # 只匯入便利函數，保持簡單
+        from .converters import encode_image, decode_image
+        globals()['encode_image'] = encode_image
+        globals()['decode_image'] = decode_image
+        __all__.extend(['encode_image', 'decode_image'])
+    except ImportError:
+        pass  # 圖片轉換器不可用
+    
+    try:
+        from .converters import encode_audio, decode_audio
+        globals()['encode_audio'] = encode_audio
+        globals()['decode_audio'] = decode_audio
+        __all__.extend(['encode_audio', 'decode_audio'])
+    except ImportError:
+        pass  # 音頻轉換器不可用
+
+# 自動載入可用的轉換器
+_try_import_converters()

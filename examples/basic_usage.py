@@ -160,7 +160,7 @@ def external_redis_example():
     import redis
     
     # 建立自訂的 Redis 客戶端
-    my_redis = redis.Redis(host='localhost', port=51201, db=1, decode_responses=False)
+    my_redis = redis.Redis(host='localhost', port=6379, db=1, decode_responses=False)
     
     # 傳入 RedisToolkit
     toolkit = RedisToolkit(

@@ -27,7 +27,7 @@ class RedisConnectionConfig:
     Redis 連線配置
     """
     host: str = 'localhost'
-    port: int = 51201
+    port: int = 6379
     db: int = 0
     password: Optional[str] = None
     username: Optional[str] = None

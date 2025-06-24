@@ -1,32 +1,63 @@
-# Redis Toolkit  
 
-![Python Version](https://img.shields.io/badge/python-3.7+-blue.svg)  
-![Redis Version](https://img.shields.io/badge/redis-4.0+-red.svg)  
-![License](https://img.shields.io/badge/license-MIT-green.svg)  
+<h1 align="center">Redis Toolkit</h1>
 
-An enhanced Redis library that simplifies working with multiple data types, pub/sub, and buffering for audio/video.  
+<p align="center">
+  <img src="https://raw.githubusercontent.com/JonesHong/redis-toolkit/main/assets/logo.png" alt="Redis Toolkit Logo" width="200"/>
+</p>
+
+<p align="center">
+  <a href="https://pypi.org/project/redis-toolkit/">
+    <img alt="PyPI version" src="https://img.shields.io/pypi/v/redis-toolkit.svg">
+  </a>
+  <a href="https://pypi.org/project/redis-toolkit/">
+    <img alt="Python versions" src="https://img.shields.io/pypi/pyversions/redis-toolkit.svg">
+  </a>
+  <a href="https://github.com/JonesHong/redis-toolkit/blob/main/LICENSE">
+    <img alt="License" src="https://img.shields.io/github/license/JonesHong/redis-toolkit.svg">
+  </a>
+  <a href="https://deepwiki.com/JonesHong/pystorex"><img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki"></a>
+</p>
+
+
+<p align="center">
+  <strong>🚀 Enhanced Redis wrapper with intelligent serialization and media processing</strong>
+</p>
+
+<p align="center">
+  A powerful Redis toolkit that simplifies multi-type data operations, pub/sub messaging, and media file processing with automatic encoding/decoding capabilities.
+</p>
+
+---
 
 ## ✨ Features
 
-- 🚀 **Rich Data-type Support**  
-  Automatic serialize/deserialize for `dict`, `list`, `bool`, `bytes` (Base64 JSON), `int`/`float`, and NumPy arrays :contentReference[oaicite:0]{index=0}  
-- 🎵 **Media Buffering**  
-  Optimized for audio/video byte buffers  
-- 📡 **Smart Pub/Sub**  
-  Easy publish/subscribe API with built-in JSON handling  
-- 🔧 **Flexible Configuration**  
-  Use your own `redis-py` client or built-in connection options  
-- 🛡️ **Robustness**  
-  Built-in retry decorator (with `ConnectionError` & `TimeoutError`) and health checks  
-- 📦 **Bulk Operations**  
-  Efficient `batch_set` / `batch_get`  
-- 🔄 **Backward Compatible**  
-  Alias `RedisCore` remains supported  
+- 🎯 **Smart Serialization**: Automatic handling of `dict`, `list`, `bool`, `bytes`, `int`, `float`, and `numpy` arrays
+- 🎵 **Media Processing**: Built-in converters for images, audio, and video files
+- 📡 **Pub/Sub Made Easy**: Simplified publish/subscribe with automatic JSON serialization
+- 🔧 **Flexible Configuration**: Support for custom Redis clients and connection settings
+- 🛡️ **Resilient Operations**: Built-in retry mechanisms and health checks
+- 📦 **Batch Operations**: Efficient `batch_set` and `batch_get` for bulk operations
 
 ## 📦 Installation
 
+### Basic Installation
 ```bash
 pip install redis-toolkit
+```
+
+### With Media Processing
+```bash
+# For image processing
+pip install redis-toolkit[cv2]
+
+# For audio processing (basic)
+pip install redis-toolkit[audio]
+
+# For audio processing (with MP3 support)
+pip install redis-toolkit[audio-full]
+
+# For complete media support
+pip install redis-toolkit[all]
 ```
 
 ## 🚀 Quick Start
@@ -36,124 +67,306 @@ pip install redis-toolkit
 ```python
 from redis_toolkit import RedisToolkit
 
+# Initialize toolkit
 toolkit = RedisToolkit()
 
-# Set various types
-toolkit.setter("user", {"name": "Alice", "age": 30, "active": True})
+# Store different data types
+toolkit.setter("user", {"name": "Alice", "age": 25, "active": True})
 toolkit.setter("scores", [95, 87, 92, 88])
 toolkit.setter("flag", True)
+toolkit.setter("binary_data", b"Hello, World!")
 
-# Get & automatically deserialize
-user   = toolkit.getter("user")    # {'name': 'Alice', 'age': 30, 'active': True}
+# Automatic deserialization
+user = toolkit.getter("user")      # {'name': 'Alice', 'age': 25, 'active': True}
 scores = toolkit.getter("scores")  # [95, 87, 92, 88]
-flag   = toolkit.getter("flag")    # True
-
-# Bulk operations
-data    = {"a": 1, "b": [2, 3, 4], "c": "hello"}
-toolkit.batch_set(data)
-results = toolkit.batch_get(["a", "b", "c"])
+flag = toolkit.getter("flag")      # True (bool, not string)
 ```
 
-### External Redis Client
-
-```python
-import redis
-from redis_toolkit import RedisToolkit
-
-custom = redis.Redis(host="localhost", port=6379, db=1)
-toolkit = RedisToolkit(redis_client=custom)
-
-# Use enhanced API alongside native commands
-toolkit.setter("x", 123)
-toolkit.client.lpush("list", "item1", "item2")
-```
-
-### Pub/Sub
+### Media Processing with Converters
 
 ```python
 from redis_toolkit import RedisToolkit
-
-def handler(channel, msg):
-    print(f"[{channel}] ->", msg)
-
-sub = RedisToolkit(channels=["news"], message_handler=handler)
-pub = RedisToolkit()
-pub.publisher("news", {"headline": "Hello Redis", "time": "2025-06-23T10:00:00Z"})
-```
-
-### Audio/Video Buffer
-
-```python
+from redis_toolkit.converters import encode_image, decode_image
+from redis_toolkit.converters import encode_audio, decode_audio
+import cv2
 import numpy as np
-from redis_toolkit import RedisToolkit
 
-audio = np.random.randn(44100).astype(np.float32)
 toolkit = RedisToolkit()
-toolkit.setter("audio_buf", audio.tobytes())
 
-raw = toolkit.getter("audio_buf")
-recovered = np.frombuffer(raw, np.float32)
-assert np.array_equal(audio, recovered)
+# Image processing
+img = cv2.imread('photo.jpg')
+img_bytes = encode_image(img, format='jpg', quality=90)
+toolkit.setter('my_image', img_bytes)
+
+# Retrieve and decode
+retrieved_bytes = toolkit.getter('my_image')
+decoded_img = decode_image(retrieved_bytes)
+
+# Audio processing
+sample_rate = 44100
+audio_data = np.sin(2 * np.pi * 440 * np.linspace(0, 1, sample_rate))
+audio_bytes = encode_audio(audio_data, sample_rate=sample_rate)
+toolkit.setter('my_audio', audio_bytes)
+
+# Retrieve and decode
+retrieved_audio = toolkit.getter('my_audio')
+decoded_rate, decoded_audio = decode_audio(retrieved_audio)
 ```
 
-### Context Manager
+### Pub/Sub with Media Sharing
 
 ```python
-from redis_toolkit import RedisToolkit, RedisOptions
+from redis_toolkit import RedisToolkit
+from redis_toolkit.converters import encode_image
+import base64
 
-with RedisToolkit(options=RedisOptions(is_logger_info=False)) as tk:
-    tk.setter("temp", {"x": 1})
-    print(tk.getter("temp"))
-# automatically calls cleanup()
+# Setup subscriber
+def message_handler(channel, data):
+    if data.get('type') == 'image':
+        # Decode base64 image data
+        img_bytes = base64.b64decode(data['image_data'])
+        img = decode_image(img_bytes)
+        print(f"Received image: {img.shape}")
+
+subscriber = RedisToolkit(
+    channels=["media_channel"],
+    message_handler=message_handler
+)
+
+# Setup publisher
+publisher = RedisToolkit()
+
+# Send image through pub/sub
+img_bytes = encode_image(your_image_array, format='jpg', quality=80)
+img_base64 = base64.b64encode(img_bytes).decode('utf-8')
+
+message = {
+    'type': 'image',
+    'user': 'Alice',
+    'image_data': img_base64,
+    'timestamp': time.time()
+}
+
+publisher.publisher("media_channel", message)
 ```
 
-## ⚙️ Configuration Options
+### Advanced Configuration
 
 ```python
 from redis_toolkit import RedisToolkit, RedisOptions, RedisConnectionConfig
 
-config = RedisConnectionConfig(host="...", port=6379, db=2)
+# Custom Redis connection
+config = RedisConnectionConfig(
+    host="localhost",
+    port=6379,
+    db=1,
+    password="your_password"
+)
+
+# Custom options
 options = RedisOptions(
     is_logger_info=True,
-    max_log_size=256,
-    max_retries=5,
-    retry_delay=1.5,
-    connection_timeout=10
+    max_log_size=512,
+    subscriber_retry_delay=10
 )
 
 toolkit = RedisToolkit(config=config, options=options)
 ```
 
-## 🔄 Migration from RedisCore
+### Batch Operations
 
-```diff
-- from your_module import RedisCore
-- redis_core = RedisCore(channels=…, message_handler=…)
-+ from redis_toolkit import RedisToolkit
-+ toolkit = RedisToolkit(channels=…, message_handler=…)
-# (alias `RedisCore` still available)
+```python
+# Batch set
+data = {
+    "user:1": {"name": "Alice", "score": 95},
+    "user:2": {"name": "Bob", "score": 87},
+    "user:3": {"name": "Charlie", "score": 92}
+}
+toolkit.batch_set(data)
+
+# Batch get
+keys = ["user:1", "user:2", "user:3"]
+results = toolkit.batch_get(keys)
+```
+
+### Context Manager
+
+```python
+with RedisToolkit() as toolkit:
+    toolkit.setter("temp_data", {"session": "12345"})
+    data = toolkit.getter("temp_data")
+    # Automatic cleanup on exit
+```
+
+## 🎨 Media Converters
+
+### Image Converter
+
+```python
+from redis_toolkit.converters import get_converter
+
+# Create image converter with custom settings
+img_converter = get_converter('image', format='png', quality=95)
+
+# Encode image
+encoded = img_converter.encode(image_array)
+
+# Decode image
+decoded = img_converter.decode(encoded)
+
+# Resize image
+resized = img_converter.resize(image_array, width=800, height=600)
+
+# Get image info
+info = img_converter.get_info(encoded_bytes)
+```
+
+### Audio Converter
+
+```python
+from redis_toolkit.converters import get_converter
+
+# Create audio converter
+audio_converter = get_converter('audio', sample_rate=44100, format='wav')
+
+# Encode from file
+encoded = audio_converter.encode_from_file('song.mp3')
+
+# Encode from array
+encoded = audio_converter.encode((sample_rate, audio_array))
+
+# Decode audio
+sample_rate, audio_array = audio_converter.decode(encoded)
+
+# Normalize audio
+normalized = audio_converter.normalize(audio_array, target_level=0.8)
+
+# Get file info
+info = audio_converter.get_file_info('song.mp3')
+```
+
+### Video Converter
+
+```python
+from redis_toolkit.converters import get_converter
+
+# Create video converter
+video_converter = get_converter('video')
+
+# Encode video file
+encoded = video_converter.encode('movie.mp4')
+
+# Save video bytes to file
+video_converter.save_video_bytes(encoded, 'output.mp4')
+
+# Get video info
+info = video_converter.get_video_info('movie.mp4')
+
+# Extract frames
+frames = video_converter.extract_frames('movie.mp4', max_frames=10)
+```
+
+## 🎯 Use Cases
+
+### Real-time Image Sharing
+Perfect for applications that need to share images instantly across different services or users.
+
+### Audio/Video Streaming
+Handle audio and video buffers efficiently with automatic encoding/decoding.
+
+### Multi-media Chat Applications
+Build chat applications that support text, images, audio, and video messages.
+
+### Data Analytics Dashboards
+Share real-time charts and visualizations between different components.
+
+### IoT Data Processing
+Handle sensor data, images from cameras, and audio from microphones.
+
+## ⚙️ Configuration Options
+
+### Redis Connection Config
+```python
+RedisConnectionConfig(
+    host='localhost',
+    port=6379,
+    db=0,
+    password=None,
+    username=None,
+    encoding='utf-8',
+    decode_responses=False,
+    socket_keepalive=True
+)
+```
+
+### Redis Options
+```python
+RedisOptions(
+    is_logger_info=True,           # Enable logging
+    max_log_size=256,              # Max log entry size
+    subscriber_retry_delay=5,      # Subscriber reconnection delay
+    subscriber_stop_timeout=5      # Subscriber stop timeout
+)
 ```
 
 ## 📋 Requirements
 
-* Python >= 3.7
-* Redis >= 4.0
-* redis-py >= 4.0
+- Python >= 3.7
+- Redis >= 4.0
+- redis-py >= 4.0
+
+### Optional Dependencies
+- **OpenCV**: For image and video processing (`pip install opencv-python`)
+- **NumPy**: For array operations (`pip install numpy`)
+- **SciPy**: For audio processing (`pip install scipy`)
+- **SoundFile**: For advanced audio formats (`pip install soundfile`)
+- **Pillow**: For additional image formats (`pip install Pillow`)
+
+## 🧪 Testing
+
+```bash
+# Install development dependencies
+pip install redis-toolkit[dev]
+
+# Run tests
+pytest
+
+# Run with coverage
+pytest --cov=redis_toolkit
+
+# Run specific test categories
+pytest -m "not slow"  # Skip slow tests
+pytest -m integration  # Run integration tests only
+```
 
 ## 🤝 Contributing
 
-1. Fork the repo
-2. Create a branch (`git checkout -b feature/…`)
-3. Commit changes (`git commit -m "…"`)
-4. Push and open a PR
+We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
 ## 📄 License
 
-MIT License — see [LICENSE](LICENSE)
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## 📞 Support
+## 📞 Contact & Support
 
-* **Docs**: [https://redis-toolkit.readthedocs.io](https://redis-toolkit.readthedocs.io)
-* **Issues**: [https://github.com/yourusername/redis-toolkit/issues](https://github.com/yourusername/redis-toolkit/issues)
-* **Discussions**: [https://github.com/yourusername/redis-toolkit/discussions](https://github.com/yourusername/redis-toolkit/discussions)
+- **Documentation**: [https://redis-toolkit.readthedocs.io](https://redis-toolkit.readthedocs.io)
+- **Issues**: [GitHub Issues](https://github.com/JonesHong/redis-toolkit/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/JonesHong/redis-toolkit/discussions)
+- **PyPI**: [https://pypi.org/project/redis-toolkit/](https://pypi.org/project/redis-toolkit/)
 
+## 🌟 Showcase
+
+**Used by these awesome projects:**
+- Add your project here by opening a PR!
+
+---
+
+<p align="center">
+  Made with ❤️ by the Redis Toolkit Team
+</p>

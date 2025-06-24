@@ -1,13 +1,60 @@
-# Redis Toolkit 核心依赖
+# Redis Toolkit 核心依賴
 redis>=4.0.0
 
-# 可选依赖（根据需要安装）
-# numpy>=1.19.0          # 数值计算和数组处理
-# Pillow>=8.0.0          # 图像处理支持
+# =============================================================================
+# 可選依賴 (根據需要選擇安裝)
+# =============================================================================
 
-# 开发和测试依赖（pip install redis-toolkit[dev]）
+# 🎨 圖片處理支援
+# pip install redis-toolkit[cv2]
+# opencv-python>=4.5.0
+# numpy>=1.19.0
+
+# 🎵 音頻處理支援（基礎）
+# pip install redis-toolkit[audio]
+# numpy>=1.19.0
+# scipy>=1.7.0
+
+# 🎵 音頻處理支援（進階，包含 MP3）
+# pip install redis-toolkit[audio-full]
+# numpy>=1.19.0
+# scipy>=1.7.0
+# soundfile>=0.10.0
+
+# 🖼️ 圖片處理支援（包含 PIL）
+# pip install redis-toolkit[image]
+# opencv-python>=4.5.0
+# numpy>=1.19.0
+# Pillow>=8.0.0
+
+# 🎬 視頻處理支援
+# pip install redis-toolkit[video]
+# opencv-python>=4.5.0
+# numpy>=1.19.0
+
+# 📺 完整媒體處理支援
+# pip install redis-toolkit[media]
+# opencv-python>=4.5.0
+# numpy>=1.19.0
+# scipy>=1.7.0
+# soundfile>=0.10.0
+# Pillow>=8.0.0
+
+# 🚀 所有功能支援
+# pip install redis-toolkit[all]
+# opencv-python>=4.5.0
+# numpy>=1.19.0
+# scipy>=1.7.0
+# soundfile>=0.10.0
+# Pillow>=8.0.0
+
+# =============================================================================
+# 開發和測試依賴
+# =============================================================================
+# pip install redis-toolkit[dev]
 # pytest>=6.0
 # pytest-cov>=2.0
 # black>=21.0
 # flake8>=3.8
 # mypy>=0.910
+# pre-commit>=2.15

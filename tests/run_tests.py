@@ -16,7 +16,7 @@ def check_redis_connection():
     """檢查 Redis 連線"""
     print("🔍 檢查 Redis 連線...")
     try:
-        client = redis.Redis(host='localhost', port=51201, db=0)
+        client = redis.Redis(host='localhost', port=6379, db=0)
         client.ping()
         print("✅ Redis 連線正常")
         return True
