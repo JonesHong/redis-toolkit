@@ -1,15 +1,8 @@
 # -*- coding: utf-8 -*-
 """
-Redis Toolkit 序列化模組
+Redis Toolkit 序列化模組 (改進版)
 提供多種資料類型的自動序列化與反序列化，
-支援:
-  - None          <-> None
-  - bool          <-> raw bytes '0'/'1' -> bool
-  - bytes         <-> JSON(Base64) wrapper
-  - str/int/float <-> JSON wrapper
-  - dict/list/tuple <-> JSON wrapper
-  - np.ndarray    <-> pickle wrapper
-  - 其他物件      <-> pickle wrapper
+改進了對嵌套在字典中的 bytes 資料的處理
 """
 import json
 import base64
@@ -19,9 +12,42 @@ from typing import Any, Union
 from ..exceptions import SerializationError
 
 
+class BytesAwareJSONEncoder(json.JSONEncoder):
+    """支援 bytes 的 JSON 編碼器"""
+    
+    def default(self, obj):
+        if isinstance(obj, bytes):
+            return {
+                '__type__': 'bytes',
+                '__data__': base64.b64encode(obj).decode('ascii')
+            }
+        elif isinstance(obj, bytearray):
+            return {
+                '__type__': 'bytearray', 
+                '__data__': base64.b64encode(obj).decode('ascii')
+            }
+        return super().default(obj)
+
+
+def _decode_bytes_in_object(obj):
+    """遞歸解碼物件中的 bytes 資料"""
+    if isinstance(obj, dict):
+        if obj.get('__type__') == 'bytes' and '__data__' in obj:
+            return base64.b64decode(obj['__data__'].encode('ascii'))
+        elif obj.get('__type__') == 'bytearray' and '__data__' in obj:
+            return bytearray(base64.b64decode(obj['__data__'].encode('ascii')))
+        else:
+            return {key: _decode_bytes_in_object(value) for key, value in obj.items()}
+    elif isinstance(obj, list):
+        return [_decode_bytes_in_object(item) for item in obj]
+    else:
+        return obj
+
+
 def serialize_value(value: Any) -> Union[bytes, int]:
     """
     將 Python 值序列化為 Redis 可存放的 bytes 或 int。
+    改進版本，支援嵌套在字典中的 bytes 資料。
     """
     # None 特殊
     if value is None:
@@ -49,12 +75,13 @@ def serialize_value(value: Any) -> Union[bytes, int]:
         except (TypeError, ValueError):
             pass
 
-    # 容器型別 (dict, list, tuple) -> JSON wrapper
+    # 容器型別 (dict, list, tuple) -> JSON wrapper (使用支援 bytes 的編碼器)
     if isinstance(value, (dict, list, tuple)):
         try:
             return json.dumps(
                 {'__type__': type(value).__name__, '__data__': value},
-                ensure_ascii=False
+                ensure_ascii=False,
+                cls=BytesAwareJSONEncoder
             ).encode('utf-8')
         except (TypeError, ValueError) as e:
             raise SerializationError(
@@ -92,6 +119,7 @@ def serialize_value(value: Any) -> Union[bytes, int]:
 def deserialize_value(data: Union[bytes, bytearray, int]) -> Any:
     """
     將 Redis 取回的資料反序列化回 Python 值。
+    改進版本，支援嵌套在字典中的 bytes 資料。
     """
     # None 標記
     if data == b'__NONE__':
@@ -138,7 +166,11 @@ def deserialize_value(data: Union[bytes, bytearray, int]) -> Any:
         if t == 'str':
             return str(d)
         if t in ('list', 'dict', 'tuple'):
-            return d
+            # 遞歸解碼嵌套的 bytes 資料
+            decoded_data = _decode_bytes_in_object(d)
+            if t == 'tuple':
+                return tuple(decoded_data)
+            return decoded_data
         if t == 'numpy':
             return d
         if t == 'pickle':
@@ -146,8 +178,8 @@ def deserialize_value(data: Union[bytes, bytearray, int]) -> Any:
         # 未知 type, 回傳 __data__
         return d
 
-    # 非 wrapper dict, 回傳 JSON 解析後的 obj
-    return obj
+    # 非 wrapper dict, 但可能包含嵌套的 bytes, 遞歸解碼
+    return _decode_bytes_in_object(obj)
 
 
 def _try_pickle_load(data: bytes) -> Any:
@@ -166,3 +198,15 @@ def _try_pickle_load(data: bytes) -> Any:
             return data.decode('utf-8')
         except UnicodeDecodeError:
             return data
+
+
+# 便利函數用於測試
+def test_serialize_deserialize(value):
+    """測試序列化和反序列化的往返"""
+    try:
+        serialized = serialize_value(value)
+        deserialized = deserialize_value(serialized)
+        return deserialized
+    except Exception as e:
+        print(f"序列化測試失敗: {e}")
+        return None

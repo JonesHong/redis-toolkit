@@ -2,7 +2,7 @@
 <h1 align="center">Redis Toolkit</h1>
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/JonesHong/redis-toolkit/main/assets/logo.png" alt="Redis Toolkit Logo" width="200"/>
+  <img src="https://raw.githubusercontent.com/JonesHong/redis-toolkit/main/assets/images/logo.png" alt="Redis Toolkit Logo" width="200"/>
 </p>
 
 <p align="center">

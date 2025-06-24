@@ -23,8 +23,8 @@ def read_requirements():
 setup(
     name="redis-toolkit",
     version="0.1.0",
-    author="Redis Toolkit Team",
-    author_email="support@redistoolkit.com",
+    author="JonesHong",
+    author_email="latte831104@gmail.com",
     description="Enhanced Redis wrapper with multi-type data support and pub/sub automation",
     long_description=read_readme(),
     long_description_content_type="text/markdown",

@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 Redis Toolkit 測試執行腳本
-提供多種測試執行選項
+提供多種測試執行選項，包括新增的轉換器測試
 """
 
 import subprocess
@@ -28,6 +28,41 @@ def check_redis_connection():
         return False
 
 
+def check_optional_dependencies():
+    """檢查可選依賴"""
+    dependencies = {
+        'opencv-python': '圖片轉換器',
+        'numpy': 'Numpy 陣列支援',
+        'scipy': '音頻轉換器',
+        'soundfile': '音頻檔案支援',
+    }
+    
+    print("🔍 檢查可選依賴...")
+    available = {}
+    
+    for package, description in dependencies.items():
+        try:
+            if package == 'opencv-python':
+                import cv2
+                available[package] = f"✅ {description} (OpenCV {cv2.__version__})"
+            elif package == 'numpy':
+                import numpy as np
+                available[package] = f"✅ {description} (NumPy {np.__version__})"
+            elif package == 'scipy':
+                import scipy
+                available[package] = f"✅ {description} (SciPy {scipy.__version__})"
+            elif package == 'soundfile':
+                import soundfile as sf
+                available[package] = f"✅ {description}"
+        except ImportError:
+            available[package] = f"⚠️ {description} (未安裝)"
+    
+    for package, status in available.items():
+        print(f"   {status}")
+    
+    return available
+
+
 def run_pytest(test_args):
     """執行 pytest"""
     cmd = ["python", "-m", "pytest"] + test_args
@@ -48,6 +83,28 @@ def run_basic_tests():
     args = [
         "tests/test_core.py",
         "tests/test_serializers.py",
+        "-v",
+        "--tb=short"
+    ]
+    return run_pytest(args)
+
+
+def run_converter_tests():
+    """執行轉換器測試"""
+    print("🧪 執行轉換器功能測試...")
+    args = [
+        "tests/test_converters.py",
+        "-v",
+        "--tb=short"
+    ]
+    return run_pytest(args)
+
+
+def run_converter_integration_tests():
+    """執行轉換器整合測試"""
+    print("🧪 執行轉換器整合測試...")
+    args = [
+        "tests/test_converters_integration.py",
         "-v",
         "--tb=short"
     ]
@@ -93,18 +150,25 @@ def run_integration_tests():
 def run_performance_tests():
     """執行效能測試"""
     print("📊 執行效能測試...")
-    # 這裡可以執行效能測試範例
-    try:
-        import sys
-        import os
-        sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
-        
-        print("執行效能測試範例...")
-        subprocess.run([sys.executable, "examples/performance_test.py"], check=True)
-        return True
-    except subprocess.CalledProcessError:
-        print("❌ 效能測試執行失敗")
-        return False
+    args = [
+        "tests/",
+        "-v",
+        "-m", "slow",
+        "--tb=short"
+    ]
+    return run_pytest(args)
+
+
+def run_media_tests():
+    """執行媒體相關測試"""
+    print("🎥 執行媒體處理測試...")
+    args = [
+        "tests/test_converters.py",
+        "tests/test_converters_integration.py",
+        "-v",
+        "--tb=short"
+    ]
+    return run_pytest(args)
 
 
 def run_coverage_tests():
@@ -179,6 +243,62 @@ def run_stress_tests():
         return False
 
 
+def run_example_tests():
+    """執行範例程式測試"""
+    print("📋 執行範例程式測試...")
+    
+    try:
+        print("執行媒體範例程式...")
+        result = subprocess.run([
+            sys.executable, "examples/media_example.py", "--test-mode"
+        ], capture_output=True, text=True, timeout=30)
+        
+        if result.returncode == 0:
+            print("✅ 媒體範例程式執行成功")
+            return True
+        else:
+            print(f"❌ 媒體範例程式執行失敗: {result.stderr}")
+            return False
+            
+    except subprocess.TimeoutExpired:
+        print("⏰ 範例程式執行超時")
+        return False
+    except FileNotFoundError:
+        print("⚠️ 範例程式檔案未找到，跳過測試")
+        return True
+    except Exception as e:
+        print(f"❌ 範例程式測試失敗: {e}")
+        return False
+
+
+def run_dependency_specific_tests():
+    """執行依賴特定測試"""
+    print("🎯 執行依賴特定測試...")
+    
+    dependencies = check_optional_dependencies()
+    test_args = ["tests/", "-v", "--tb=short"]
+    
+    # 根據可用依賴調整測試
+    skip_marks = []
+    
+    if "✅" not in dependencies.get('opencv-python', ''):
+        skip_marks.append("not (test_image or TestImage)")
+        print("⏭️ 跳過圖片相關測試 (OpenCV 未安裝)")
+    
+    if "✅" not in dependencies.get('numpy', ''):
+        skip_marks.append("not numpy")
+        print("⏭️ 跳過 NumPy 相關測試")
+    
+    if "✅" not in dependencies.get('scipy', ''):
+        skip_marks.append("not (test_audio or TestAudio)")
+        print("⏭️ 跳過音頻相關測試 (SciPy 未安裝)")
+    
+    if skip_marks:
+        test_args.extend(["-m", " and ".join(skip_marks)])
+    
+    return run_pytest(test_args)
+
+
 def main():
     """主函數"""
     parser = argparse.ArgumentParser(description="Redis Toolkit 測試執行器")
@@ -186,7 +306,11 @@ def main():
         "test_type",
         nargs="?",
         default="basic",
-        choices=["basic", "all", "quick", "integration", "performance", "coverage", "stress"],
+        choices=[
+            "basic", "all", "quick", "integration", "performance", 
+            "coverage", "stress", "converters", "converter-integration",
+            "media", "examples", "dependency-specific"
+        ],
         help="測試類型 (預設: basic)"
     )
     parser.add_argument(
@@ -194,18 +318,41 @@ def main():
         action="store_true",
         help="跳過 Redis 連線檢查"
     )
+    parser.add_argument(
+        "--check-deps",
+        action="store_true",
+        help="檢查依賴後退出"
+    )
     
     args = parser.parse_args()
     
     print("🧪 Redis Toolkit 測試執行器")
     print("=" * 50)
     
+    # 只檢查依賴
+    if args.check_deps:
+        check_optional_dependencies()
+        return
+    
     # 檢查 Redis 連線（除非跳過）
-    if not args.skip_redis_check and args.test_type in ["basic", "all", "integration", "stress"]:
+    redis_tests = [
+        "basic", "all", "integration", "stress", 
+        "converter-integration", "media", "examples"
+    ]
+    
+    if not args.skip_redis_check and args.test_type in redis_tests:
         if not check_redis_connection():
             print("\n💡 如果您只想測試序列化功能，可以執行：")
             print("   python run_tests.py quick --skip-redis-check")
+            print("💡 或測試轉換器功能：")
+            print("   python run_tests.py converters --skip-redis-check")
             sys.exit(1)
+    
+    # 檢查可選依賴
+    if args.test_type in ["converters", "converter-integration", "media", "all"]:
+        print()
+        check_optional_dependencies()
+        print()
     
     # 執行對應的測試
     test_functions = {
@@ -216,6 +363,11 @@ def main():
         "performance": run_performance_tests,
         "coverage": run_coverage_tests,
         "stress": run_stress_tests,
+        "converters": run_converter_tests,
+        "converter-integration": run_converter_integration_tests,
+        "media": run_media_tests,
+        "examples": run_example_tests,
+        "dependency-specific": run_dependency_specific_tests,
     }
     
     success = test_functions[args.test_type]()
@@ -223,8 +375,31 @@ def main():
     print("\n" + "=" * 50)
     if success:
         print("🎉 測試執行完成！")
+        
+        # 提供後續建議
+        if args.test_type == "basic":
+            print("\n💡 下一步建議:")
+            print("   python run_tests.py converters     # 測試轉換器功能")
+            print("   python run_tests.py media          # 測試媒體處理")
+            print("   python run_tests.py all            # 執行完整測試")
+        elif args.test_type == "converters":
+            print("\n💡 下一步建議:")
+            print("   python run_tests.py converter-integration  # 測試整合功能")
+            print("   python run_tests.py examples               # 執行範例程式")
     else:
         print("❌ 測試執行失敗！")
+        
+        # 提供除錯建議
+        print("\n🔧 除錯建議:")
+        if args.test_type in ["converters", "media"]:
+            print("   1. 檢查依賴: python run_tests.py --check-deps")
+            print("   2. 安裝轉換器依賴: pip install redis-toolkit[cv2,audio]")
+            print("   3. 執行基本測試: python run_tests.py basic")
+        else:
+            print("   1. 檢查 Redis 連線")
+            print("   2. 檢查依賴安裝")
+            print("   3. 查看詳細錯誤訊息")
+        
         sys.exit(1)
 
 
