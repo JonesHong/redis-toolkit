@@ -22,13 +22,13 @@ def read_requirements():
 
 setup(
     name="redis-toolkit",
-    version="0.1.2",
+    version="0.1.3",
     author="JonesHong",
     author_email="latte831104@gmail.com",
     description="Enhanced Redis wrapper with multi-type data support and pub/sub automation",
     long_description=read_readme(),
     long_description_content_type="text/markdown",
-    url="https://github.com/yourusername/redis-toolkit",
+    url="https://github.com/JonesHong/redis-toolkit",
     packages=find_packages(),
     classifiers=[
         "Development Status :: 4 - Beta",
