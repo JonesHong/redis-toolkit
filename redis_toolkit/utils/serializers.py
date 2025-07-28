@@ -1,12 +1,11 @@
 # -*- coding: utf-8 -*-
 """
-Redis Toolkit 序列化模組 (改進版)
+Redis Toolkit 序列化模組 (安全版)
 提供多種資料類型的自動序列化與反序列化，
-改進了對嵌套在字典中的 bytes 資料的處理
+完全移除 pickle 以確保安全性
 """
 import json
 import base64
-import pickle
 from typing import Any, Union
 
 from ..exceptions import SerializationError
@@ -44,20 +43,73 @@ def _decode_bytes_in_object(obj):
         return obj
 
 
+def serialize_numpy_array(value) -> bytes:
+    """安全地序列化 NumPy 陣列"""
+    try:
+        import numpy as np
+        if not isinstance(value, np.ndarray):
+            raise ValueError("不是 NumPy 陣列")
+        
+        # 轉換為安全的 JSON 格式
+        return json.dumps({
+            '__type__': 'numpy',
+            '__dtype__': str(value.dtype),
+            '__shape__': value.shape,
+            '__data__': value.tolist()  # 轉為 Python list
+        }, ensure_ascii=False).encode('utf-8')
+    except ImportError:
+        raise SerializationError("NumPy 未安裝")
+    except Exception as e:
+        raise SerializationError(
+            f"NumPy 陣列序列化失敗: {e}",
+            original_data=value,
+            original_exception=e
+        )
+
+
+def deserialize_numpy_array(obj: dict):
+    """安全地反序列化 NumPy 陣列"""
+    try:
+        import numpy as np
+        return np.array(
+            obj['__data__'], 
+            dtype=obj['__dtype__']
+        ).reshape(obj['__shape__'])
+    except ImportError:
+        raise SerializationError("NumPy 未安裝")
+    except Exception as e:
+        raise SerializationError(
+            f"NumPy 陣列反序列化失敗: {e}",
+            original_exception=e
+        )
+
+
 def serialize_value(value: Any) -> Union[bytes, int]:
     """
     將 Python 值序列化為 Redis 可存放的 bytes 或 int。
-    改進版本，支援嵌套在字典中的 bytes 資料。
+    安全版本，不使用 pickle。
+    
+    支援的類型：
+    - None
+    - bool
+    - int, float
+    - str
+    - bytes, bytearray
+    - dict, list, tuple
+    - numpy.ndarray (如果安裝了 NumPy)
     """
-    # None 特殊
+    # None 特殊標記
     if value is None:
         return b'__NONE__'
 
-    # bool -> raw bytes '0'/'1'
+    # bool -> JSON with type marker
     if isinstance(value, bool):
-        return int(value)
+        return json.dumps(
+            {'__type__': 'bool', '__data__': value},
+            ensure_ascii=False
+        ).encode('utf-8')
 
-    # bytes/bytearray -> 用 Base64 包成 JSON wrapper
+    # bytes/bytearray -> Base64 編碼的 JSON
     if isinstance(value, (bytes, bytearray)):
         encoded = base64.b64encode(value).decode('ascii')
         return json.dumps(
@@ -72,10 +124,14 @@ def serialize_value(value: Any) -> Union[bytes, int]:
                 {'__type__': type(value).__name__, '__data__': value},
                 ensure_ascii=False
             ).encode('utf-8')
-        except (TypeError, ValueError):
-            pass
+        except (TypeError, ValueError) as e:
+            raise SerializationError(
+                f"無法序列化 {type(value).__name__} 類型",
+                original_data=value,
+                original_exception=e
+            )
 
-    # 容器型別 (dict, list, tuple) -> JSON wrapper (使用支援 bytes 的編碼器)
+    # 容器型別 (dict, list, tuple) -> JSON wrapper
     if isinstance(value, (dict, list, tuple)):
         try:
             return json.dumps(
@@ -85,119 +141,92 @@ def serialize_value(value: Any) -> Union[bytes, int]:
             ).encode('utf-8')
         except (TypeError, ValueError) as e:
             raise SerializationError(
-                "JSON 序列化失敗",
+                f"無法序列化 {type(value).__name__} 類型",
                 original_data=value,
                 original_exception=e
             )
 
-    # NumPy 陣列特例
+    # NumPy 陣列特殊處理（安全版本）
     try:
-        import numpy as np  # noqa: F401
+        import numpy as np
         if isinstance(value, np.ndarray):
-            try:
-                return pickle.dumps({'__type__': 'numpy', '__data__': value})
-            except Exception as e:
-                raise SerializationError(
-                    "NumPy pickle 序列化失敗",
-                    original_data=value,
-                    original_exception=e
-                )
+            return serialize_numpy_array(value)
     except ImportError:
         pass
 
-    # 其他物件 -> pickle wrapper
-    try:
-        return pickle.dumps({'__type__': 'pickle', '__data__': value})
-    except Exception as e:
-        raise SerializationError(
-            "Pickle 序列化失敗",
-            original_data=value,
-            original_exception=e
-        )
+    # 不支援的類型
+    raise SerializationError(
+        f"不支援的資料類型: {type(value).__name__}。\n"
+        f"支援的類型: None, bool, int, float, str, bytes, bytearray, dict, list, tuple, numpy.ndarray"
+    )
 
 
 def deserialize_value(data: Union[bytes, bytearray, int]) -> Any:
     """
     將 Redis 取回的資料反序列化回 Python 值。
-    改進版本，支援嵌套在字典中的 bytes 資料。
+    安全版本，不使用 pickle。
     """
     # None 標記
     if data == b'__NONE__':
         return None
 
-    # raw bytes '0'/'1' -> bool
-    if isinstance(data, (bytes, bytearray)) and data in (b'0', b'1'):
-        return bool(int(data))
-
-    # 純 int (bool special-case) -> bool，其餘非 bytes 原樣回傳
+    # int 0/1 -> bool
+    if isinstance(data, int) and data in (0, 1):
+        return bool(data)
+    
+    # 非 bytes 類型直接返回
     if not isinstance(data, (bytes, bytearray)):
-        if isinstance(data, int) and data in (0, 1):
-            return bool(data)
         return data
 
-    # 嘗試以 UTF-8 解碼 bytes
+    # 嘗試 UTF-8 解碼
     try:
         text = data.decode('utf-8')
     except UnicodeDecodeError:
-        # 非 UTF-8, 走 pickle 還原
-        return _try_pickle_load(data)
+        # 無法解碼，返回原始 bytes
+        return bytes(data)
 
-    # 嘗試 JSON loads
+    # 嘗試 JSON 解析
     try:
         obj = json.loads(text)
     except (json.JSONDecodeError, TypeError, ValueError):
-        # JSON parse 失敗, 走 pickle 還原
-        return _try_pickle_load(data)
+        # 不是 JSON，返回解碼後的字串
+        return text
 
-    # JSON 解析成功，檢查 wrapper
+    # 處理特殊的 wrapper 格式
     if isinstance(obj, dict) and '__type__' in obj:
         t = obj['__type__']
-        d = obj['__data__']
+        d = obj.get('__data__')
 
         if t == 'bytes':
             return base64.b64decode(d.encode('ascii'))
-        if t == 'int':
+        elif t == 'bytearray':
+            return bytearray(base64.b64decode(d.encode('ascii')))
+        elif t == 'bool':
+            return bool(d)
+        elif t == 'int':
             # 0/1 視為布林
             if d in (0, 1):
                 return bool(d)
             return int(d)
-        if t == 'float':
+        elif t == 'float':
             return float(d)
-        if t == 'str':
+        elif t == 'str':
             return str(d)
-        if t in ('list', 'dict', 'tuple'):
+        elif t in ('list', 'dict', 'tuple'):
             # 遞歸解碼嵌套的 bytes 資料
             decoded_data = _decode_bytes_in_object(d)
             if t == 'tuple':
                 return tuple(decoded_data)
             return decoded_data
-        if t == 'numpy':
+        elif t == 'numpy':
+            # 安全的 NumPy 反序列化
+            return deserialize_numpy_array(obj)
+        else:
+            # 未知類型，返回原始數據
             return d
-        if t == 'pickle':
-            return d
-        # 未知 type, 回傳 __data__
-        return d
 
-    # 非 wrapper dict, 但可能包含嵌套的 bytes, 遞歸解碼
+    # 非 wrapper dict，但可能包含嵌套的 bytes，遞歸解碼
     return _decode_bytes_in_object(obj)
-
-
-def _try_pickle_load(data: bytes) -> Any:
-    """
-    嘗試 pickle.loads，還原 numpy / pickle wrapper，
-    失敗則嘗試 decode utf-8 或回傳 raw bytes
-    """
-    try:
-        obj = pickle.loads(data)
-        if isinstance(obj, dict) and '__type__' in obj:
-            if obj['__type__'] in ('numpy', 'pickle'):
-                return obj['__data__']
-        return obj
-    except Exception:
-        try:
-            return data.decode('utf-8')
-        except UnicodeDecodeError:
-            return data
 
 
 # 便利函數用於測試

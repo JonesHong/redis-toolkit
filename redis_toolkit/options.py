@@ -19,6 +19,11 @@ class RedisOptions:
     # 訂閱者相關
     subscriber_retry_delay: int = 5          # 訂閱者重連延遲（秒）
     subscriber_stop_timeout: int = 5         # 訂閱者停止逾時（秒）
+    
+    # 安全性相關
+    max_value_size: int = 10 * 1024 * 1024   # 最大值大小（位元組），預設 10MB
+    max_key_length: int = 512                # 最大鍵長度
+    enable_validation: bool = True           # 是否啟用驗證
 
 
 @dataclass 
@@ -32,9 +37,7 @@ class RedisConnectionConfig:
     password: Optional[str] = None
     username: Optional[str] = None
     encoding: str = 'utf-8'
-    decode_responses: bool = False
     socket_keepalive: bool = True
-    socket_keepalive_options: Optional[dict] = None
     
     def to_redis_kwargs(self) -> dict:
         """
@@ -45,7 +48,7 @@ class RedisConnectionConfig:
             'port': self.port,
             'db': self.db,
             'encoding': self.encoding,
-            'decode_responses': self.decode_responses,
+            'decode_responses': False,  # 總是 False 以保證正確的序列化
             'socket_keepalive': self.socket_keepalive,
         }
         
@@ -54,9 +57,6 @@ class RedisConnectionConfig:
             
         if self.username:
             kwargs['username'] = self.username
-            
-        if self.socket_keepalive_options:
-            kwargs['socket_keepalive_options'] = self.socket_keepalive_options
             
         return kwargs
 

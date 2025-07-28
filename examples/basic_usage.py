@@ -154,17 +154,15 @@ def pubsub_example():
 
 
 def external_redis_example():
-    """使用外部 Redis 實例範例"""
-    print("\n=== 使用外部 Redis 實例範例 ===")
+    """使用不同資料庫範例"""
+    print("\n=== 使用不同資料庫範例 ===")
     
-    import redis
+    # 使用不同的資料庫
+    config = RedisConnectionConfig(db=1)
     
-    # 建立自訂的 Redis 客戶端
-    my_redis = redis.Redis(host='localhost', port=6379, db=1, decode_responses=False)
-    
-    # 傳入 RedisToolkit
+    # 建立 RedisToolkit
     toolkit = RedisToolkit(
-        redis_client=my_redis,
+        config=config,
         options=RedisOptions(is_logger_info=False)
     )
     

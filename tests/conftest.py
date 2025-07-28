@@ -185,16 +185,20 @@ def temp_media_files():
     try:
         # 建立暫存圖片檔案
         if numpy_available():
-            import cv2
-            test_image = np.random.randint(0, 255, (100, 100, 3), dtype=np.uint8)
-            
-            with tempfile.NamedTemporaryFile(suffix='.jpg', delete=False) as f:
-                cv2.imwrite(f.name, test_image)
-                files['image_jpg'] = f.name
-            
-            with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as f:
-                cv2.imwrite(f.name, test_image)
-                files['image_png'] = f.name
+            try:
+                import cv2
+                test_image = np.random.randint(0, 255, (100, 100, 3), dtype=np.uint8)
+                
+                with tempfile.NamedTemporaryFile(suffix='.jpg', delete=False) as f:
+                    cv2.imwrite(f.name, test_image)
+                    files['image_jpg'] = f.name
+                
+                with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as f:
+                    cv2.imwrite(f.name, test_image)
+                    files['image_png'] = f.name
+            except ImportError:
+                # cv2 not available, skip image file creation
+                pass
     except ImportError:
         pass
     
@@ -428,8 +432,15 @@ skip_if_no_numpy = pytest.mark.skipif(
     reason="Numpy 未安裝或版本過舊"
 )
 
+# 檢查 cv2 是否可用
+try:
+    import cv2
+    _has_cv2 = True
+except ImportError:
+    _has_cv2 = False
+
 skip_if_no_opencv = pytest.mark.skipif(
-    not pytest.importorskip("cv2"),
+    not _has_cv2,
     reason="OpenCV 未安裝"
 )
 

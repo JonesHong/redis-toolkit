@@ -23,6 +23,13 @@ class SerializationError(RedisToolkitError):
         self.original_exception = original_exception
 
 
+class ValidationError(RedisToolkitError):
+    """
+    資料驗證錯誤，例如超過大小限制
+    """
+    pass
+
+
 def wrap_redis_exceptions(func):
     """
     裝飾器：包裝 Redis 原生例外為 RedisToolkit 例外

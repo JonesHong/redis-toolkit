@@ -304,53 +304,6 @@ class TestRedisToolkitConfig:
         
         toolkit.cleanup()
     
-    def test_custom_redis_client(self):
-        """測試自訂 Redis 客戶端"""
-        import redis
-        
-        # 建立自訂 Redis 客戶端
-        custom_redis = redis.Redis(host='localhost', port=6379, db=1, decode_responses=False)
-        
-        toolkit = RedisToolkit(
-            redis_client=custom_redis,
-            options=RedisOptions(is_logger_info=False)
-        )
-        
-        # 測試是否使用自訂客戶端
-        assert toolkit.client == custom_redis
-        
-        # 測試功能正常
-        toolkit.setter("custom_client_test", "測試自訂客戶端")
-        result = toolkit.getter("custom_client_test")
-        assert result == "測試自訂客戶端"
-        
-        toolkit.cleanup()
-    
-    def test_retry_enabled_disabled(self):
-        """測試重試機制開關"""
-        # 啟用重試
-        toolkit_with_retry = RedisToolkit(
-            enable_retry=True,
-            options=RedisOptions(is_logger_info=False)
-        )
-        assert toolkit_with_retry.enable_retry is True
-        
-        # 不啟用重試
-        toolkit_without_retry = RedisToolkit(
-            enable_retry=False,
-            options=RedisOptions(is_logger_info=False)
-        )
-        assert toolkit_without_retry.enable_retry is False
-        
-        # 兩者都應該正常工作
-        toolkit_with_retry.setter("retry_test", "with_retry")
-        toolkit_without_retry.setter("no_retry_test", "without_retry")
-        
-        assert toolkit_with_retry.getter("retry_test") == "with_retry"
-        assert toolkit_without_retry.getter("no_retry_test") == "without_retry"
-        
-        toolkit_with_retry.cleanup()
-        toolkit_without_retry.cleanup()
 
 
 class TestRedisToolkitContextManager:

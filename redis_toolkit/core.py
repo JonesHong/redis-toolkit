@@ -14,7 +14,7 @@ import redis
 from redis import Redis
 
 from .options import RedisOptions, RedisConnectionConfig, DEFAULT_OPTIONS
-from .exceptions import RedisToolkitError, SerializationError, wrap_redis_exceptions
+from .exceptions import RedisToolkitError, SerializationError, ValidationError, wrap_redis_exceptions
 from .utils.serializers import serialize_value, deserialize_value
 from .utils.retry import simple_retry
 
@@ -30,31 +30,26 @@ class RedisToolkit:
 
     def __init__(
         self,
-        redis_client: Optional[Redis] = None,
         config: Optional[RedisConnectionConfig] = None,
         channels: Optional[List[str]] = None,
         message_handler: Optional[Callable[[str, Any], None]] = None,
-        enable_retry: bool = True,
         options: Optional[RedisOptions] = None,
     ):
         """
         初始化 RedisToolkit
 
         參數:
-            redis_client: Redis 客戶端實例，若為 None 則根據 config 建立
             config: Redis 連線配置
             channels: 要訂閱的頻道列表
             message_handler: 訊息處理函數
-            enable_retry: 是否啟用重試機制
             options: 工具包配置選項
         """
         self.options = options or DEFAULT_OPTIONS
-        self.enable_retry = enable_retry
         self.run_subscriber = True
         self.sub_thread: Optional[threading.Thread] = None
 
         # 初始化 Redis 客戶端
-        self._init_redis_client(redis_client, config)
+        self._init_redis_client(config)
 
         # 發布訂閱相關
         self._channels = channels
@@ -63,16 +58,11 @@ class RedisToolkit:
         if channels and message_handler:
             self._start_subscriber()
 
-    def _init_redis_client(
-        self, redis_client: Optional[Redis], config: Optional[RedisConnectionConfig]
-    ):
+    def _init_redis_client(self, config: Optional[RedisConnectionConfig]):
         """初始化 Redis 客戶端"""
-        if redis_client is None:
-            if config is None:
-                config = RedisConnectionConfig()
-            self._redis_client = Redis(**config.to_redis_kwargs())
-        else:
-            self._redis_client = redis_client
+        if config is None:
+            config = RedisConnectionConfig()
+        self._redis_client = Redis(**config.to_redis_kwargs())
 
     @property
     def client(self) -> Redis:
@@ -98,9 +88,17 @@ class RedisToolkit:
         try:
             self._redis_client.ping()
             return True
-        except redis.RedisError:
+        except redis.ConnectionError as e:
+            logger.warning(f"Redis 連線錯誤: {e}")
             return False
-        except Exception:
+        except redis.TimeoutError as e:
+            logger.warning(f"Redis 連線超時: {e}")
+            return False
+        except redis.RedisError as e:
+            logger.error(f"Redis 錯誤: {e}")
+            return False
+        except Exception as e:
+            logger.error(f"健康檢查時發生未預期錯誤: {type(e).__name__}: {e}")
             return False
 
     def setter(
@@ -117,27 +115,41 @@ class RedisToolkit:
         opts = options or self.options
         original_value = value
 
+        # 驗證鍵名長度
+        if opts.enable_validation and len(name) > opts.max_key_length:
+            raise ValidationError(
+                f"鍵名長度 ({len(name)}) 超過限制 ({opts.max_key_length})"
+            )
+
         try:
             # 序列化處理
             serialized_value = serialize_value(value)
-
-            # 記錄日誌
-            if opts.is_logger_info:
-                log_content = self._format_log(original_value, opts.max_log_size)
-                logger.info(f"設定 {name}: {log_content}")
-
-            # 存儲到 Redis（可選重試）
-            if self.enable_retry:
-                simple_retry(self._redis_client.set)(name, serialized_value)
-            else:
-                self._redis_client.set(name, serialized_value)
-
+        except SerializationError:
+            raise  # 重新拋出序列化錯誤
         except Exception as e:
             raise SerializationError(
-                f"設定鍵 '{name}' 失敗",
-                original_data=original_value,
-                original_exception=e,
+                f"序列化鍵 '{name}' 的值時失敗",
+                original_data=value,
+                original_exception=e
             ) from e
+
+        # 驗證序列化後的大小
+        if opts.enable_validation and len(serialized_value) > opts.max_value_size:
+            raise ValidationError(
+                f"資料大小 ({len(serialized_value)} bytes) 超過限制 "
+                f"({opts.max_value_size} bytes) for key '{name}'"
+            )
+
+        # 記錄日誌
+        if opts.is_logger_info:
+            log_content = self._format_log(original_value, opts.max_log_size)
+            logger.info(f"設定 {name}: {log_content}")
+
+        try:
+            # 存儲到 Redis（使用重試）
+            simple_retry(self._redis_client.set)(name, serialized_value)
+        except redis.RedisError as e:
+            raise RedisToolkitError(f"Redis 操作失敗 for key '{name}'") from e
 
     def getter(self, name: str, options: Optional[RedisOptions] = None) -> Any:
         """
@@ -153,11 +165,8 @@ class RedisToolkit:
         opts = options or self.options
 
         try:
-            # 從 Redis 取得資料（可選重試）
-            if self.enable_retry:
-                raw_value = simple_retry(self._redis_client.get)(name)
-            else:
-                raw_value = self._redis_client.get(name)
+            # 從 Redis 取得資料（使用重試）
+            raw_value = simple_retry(self._redis_client.get)(name)
 
             if raw_value is None:
                 return None
@@ -187,10 +196,7 @@ class RedisToolkit:
         回傳:
             bool: 是否成功刪除
         """
-        if self.enable_retry:
-            result = simple_retry(self._redis_client.delete)(name)
-        else:
-            result = self._redis_client.delete(name)
+        result = simple_retry(self._redis_client.delete)(name)
 
         logger.info(f"RedisToolkit 刪除 {name}")
         return bool(result)
@@ -206,20 +212,59 @@ class RedisToolkit:
             options: 配置選項
         """
         opts = options or self.options
+        
+        # 預先驗證和序列化
+        serialized_data = {}
+        total_size = 0
+        
+        for key, value in mapping.items():
+            # 驗證鍵名長度
+            if opts.enable_validation and len(key) > opts.max_key_length:
+                raise ValidationError(
+                    f"批次操作中鍵名長度 ({len(key)}) 超過限制 ({opts.max_key_length})"
+                )
+            
+            try:
+                serialized_value = serialize_value(value)
+            except SerializationError:
+                raise
+            except Exception as e:
+                raise SerializationError(
+                    f"批次操作中序列化鍵 '{key}' 的值時失敗",
+                    original_data=value,
+                    original_exception=e
+                ) from e
+            
+            # 驗證單一值大小
+            if opts.enable_validation and len(serialized_value) > opts.max_value_size:
+                raise ValidationError(
+                    f"批次操作中資料大小 ({len(serialized_value)} bytes) "
+                    f"超過限制 ({opts.max_value_size} bytes) for key '{key}'"
+                )
+            
+            serialized_data[key] = serialized_value
+            total_size += len(serialized_value)
+        
+        # 驗證總大小（批次操作的總大小限制為單一值限制的 10 倍）
+        batch_size_limit = opts.max_value_size * 10
+        if opts.enable_validation and total_size > batch_size_limit:
+            raise ValidationError(
+                f"批次操作總大小 ({total_size} bytes) "
+                f"超過限制 ({batch_size_limit} bytes)"
+            )
 
         try:
             with self._redis_client.pipeline() as pipe:
-                for key, value in mapping.items():
-                    serialized_value = serialize_value(value)
+                for key, serialized_value in serialized_data.items():
                     pipe.set(key, serialized_value)
                 pipe.execute()
 
             if opts.is_logger_info:
                 logger.info(f"批次設定 {len(mapping)} 個鍵")
 
-        except Exception as e:
-            raise SerializationError(
-                f"批次設定 {len(mapping)} 個鍵失敗", original_exception=e
+        except redis.RedisError as e:
+            raise RedisToolkitError(
+                f"批次設定 {len(mapping)} 個鍵的 Redis 操作失敗"
             ) from e
 
     def batch_get(
@@ -279,11 +324,8 @@ class RedisToolkit:
                 log_content = self._format_log(data, opts.max_log_size)
                 logger.info(f"發布到 {channel}: {log_content}")
 
-            # 發布訊息（可選重試）
-            if self.enable_retry:
-                simple_retry(self._redis_client.publish)(channel, message)
-            else:
-                self._redis_client.publish(channel, message)
+            # 發布訊息（使用重試）
+            simple_retry(self._redis_client.publish)(channel, message)
 
         except Exception as e:
             raise SerializationError(
@@ -418,16 +460,35 @@ class RedisToolkit:
 
         elif isinstance(data, dict):
             try:
+                # 對於大字典，只顯示鍵的數量
+                if len(str(data)) > max_size * 2:
+                    return f"<字典: {len(data)} 個鍵>"
                 json_data = json.dumps(data, ensure_ascii=False)
                 return self._truncate_string(json_data, max_size)
             except Exception as e:
-                return f"<字典錯誤: {str(e)}>"
+                return f"<字典: {len(data)} 個鍵, 錯誤: {str(e)}>"
+
+        elif isinstance(data, (list, tuple)):
+            try:
+                # 對於大列表/元組，只顯示元素數量
+                if len(str(data)) > max_size * 2:
+                    return f"<{type(data).__name__}: {len(data)} 個元素>"
+                return self._truncate_string(str(data), max_size)
+            except Exception:
+                return f"<{type(data).__name__}: {len(data)} 個元素>"
 
         elif isinstance(data, str):
             return self._truncate_string(data, max_size)
 
         else:
-            return str(data)
+            try:
+                data_str = str(data)
+                # 對於其他大型物件，顯示類型和大小
+                if len(data_str) > max_size * 2:
+                    return f"<{type(data).__name__} 物件: {len(data_str)} 字元>"
+                return self._truncate_string(data_str, max_size)
+            except Exception:
+                return f"<{type(data).__name__} 物件>"
 
     def _truncate_string(self, data: str, max_size: int) -> str:
         """
@@ -467,15 +528,3 @@ class RedisToolkit:
 
         logger.info("RedisToolkit 清理完成")
 
-    def __del__(self):
-        """析構函數，確保資源清理"""
-        try:
-            if hasattr(self, "_redis_client") and self._redis_client:
-                self.cleanup()
-        except:
-            # 在析構函數中忽略所有錯誤，避免程式結束時的異常
-            pass
-
-
-# 向後相容的別名
-RedisCore = RedisToolkit

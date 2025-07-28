@@ -210,18 +210,16 @@ def test_pubsub_performance():
 
 
 def test_retry_performance():
-    """測試重試機制對效能的影響"""
-    print("\n=== 重試機制效能測試 ===")
+    """測試效能"""
+    print("\n=== 效能測試 ===")
     
-    # 測試啟用重試
+    # 測試第一個實例
     toolkit_with_retry = RedisToolkit(
-        enable_retry=True,
         options=RedisOptions(is_logger_info=False)
     )
     
-    # 測試不啟用重試
+    # 測試第二個實例
     toolkit_without_retry = RedisToolkit(
-        enable_retry=False,
         options=RedisOptions(is_logger_info=False)
     )
     

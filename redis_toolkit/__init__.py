@@ -6,12 +6,12 @@ Redis Toolkit - 增強版 Redis 工具包
 特別適用於處理字典資料和音視訊緩衝區資料
 """
 
-from .core import RedisToolkit, RedisCore  # RedisCore 為向後相容別名
+from .core import RedisToolkit
 from .options import RedisOptions, RedisConnectionConfig, DEFAULT_OPTIONS
-from .exceptions import RedisToolkitError, SerializationError
+from .exceptions import RedisToolkitError, SerializationError, ValidationError
 from .utils import simple_retry, serialize_value, deserialize_value
 
-__version__ = "0.1.3"
+__version__ = "0.3.0"
 __author__ = "Redis Toolkit Team"
 __description__ = "增強版 Redis 工具包，支援多類型資料自動序列化"
 
@@ -19,7 +19,6 @@ __description__ = "增強版 Redis 工具包，支援多類型資料自動序列
 __all__ = [
     # 核心類
     'RedisToolkit',
-    'RedisCore',  # 向後相容
     
     # 配置類
     'RedisOptions',
@@ -29,6 +28,7 @@ __all__ = [
     # 例外類
     'RedisToolkitError',
     'SerializationError',
+    'ValidationError',
     
     # 工具函數
     'simple_retry',

@@ -31,7 +31,8 @@
 
 ## ✨ Features
 
-- 🎯 **Smart Serialization**: Automatic handling of `dict`, `list`, `bool`, `bytes`, `int`, `float`, and `numpy` arrays
+- 🎯 **Smart & Secure Serialization**: Automatic handling of `dict`, `list`, `bool`, `bytes`, `int`, `float`, and `numpy` arrays using JSON-based serialization (no pickle!)
+- 🔐 **Security First**: No pickle serialization means no remote code execution vulnerabilities
 - 🎵 **Media Processing**: Built-in converters for images, audio, and video files
 - 📡 **Pub/Sub Made Easy**: Simplified publish/subscribe with automatic JSON serialization
 - 🔧 **Flexible Configuration**: Support for custom Redis clients and connection settings

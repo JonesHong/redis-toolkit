@@ -611,7 +611,6 @@ class TestConverterErrorHandling:
         try:
             toolkit = RedisToolkit(
                 config=invalid_config,
-                enable_retry=False,  # 避免重試延遲
                 options=RedisOptions(is_logger_info=False)
             )
             

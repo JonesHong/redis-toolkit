@@ -33,8 +33,8 @@ class TestBasicSerialization:
         """測試布林值序列化"""
         # 測試 True
         serialized_true = serialize_value(True)
-        assert serialized_true == 1
-        assert isinstance(serialized_true, int)
+        assert isinstance(serialized_true, bytes)
+        assert b'"bool"' in serialized_true  # 確認有類型標記
         
         deserialized_true = deserialize_value(serialized_true)
         assert deserialized_true is True
@@ -42,8 +42,8 @@ class TestBasicSerialization:
         
         # 測試 False
         serialized_false = serialize_value(False)
-        assert serialized_false == 0
-        assert isinstance(serialized_false, int)
+        assert isinstance(serialized_false, bytes)
+        assert b'"bool"' in serialized_false  # 確認有類型標記
         
         deserialized_false = deserialize_value(serialized_false)
         assert deserialized_false is False
