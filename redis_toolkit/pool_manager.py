@@ -166,12 +166,22 @@ class ConnectionPoolManager:
             for pool_key, pool in list(self._pools.items()):
                 try:
                     pool.disconnect()
-                    logger.info(f"關閉連接池: {pool_key[:8]}...")
+                    # 在程式關閉時避免日誌錯誤
+                    try:
+                        logger.info(f"關閉連接池: {pool_key[:8]}...")
+                    except:
+                        pass
                 except Exception as e:
-                    logger.error(f"關閉連接池 {pool_key[:8]}... 時發生錯誤: {e}")
+                    try:
+                        logger.error(f"關閉連接池 {pool_key[:8]}... 時發生錯誤: {e}")
+                    except:
+                        pass
             
             self._pools.clear()
-            logger.info("所有連接池已關閉")
+            try:
+                logger.info("所有連接池已關閉")
+            except:
+                pass
     
     def get_pool_stats(self) -> Dict[str, Dict[str, int]]:
         """
@@ -202,7 +212,14 @@ class ConnectionPoolManager:
     def __del__(self):
         """清理時關閉所有連接池"""
         try:
-            self.close_all_pools()
+            # 直接斷開連接，不記錄日誌
+            with self._pool_lock:
+                for pool in self._pools.values():
+                    try:
+                        pool.disconnect()
+                    except:
+                        pass
+                self._pools.clear()
         except Exception:
             pass  # 忽略清理時的錯誤
 

@@ -305,7 +305,7 @@ def audio_file_processing():
     
     try:
         # 檢查是否有範例音訊檔案
-        audio_file = "examples/data/RobertoPrado_CourtScheme.mp3"
+        audio_file = "examples/real-world/media_processing/data/RobertoPrado_CourtScheme.mp3"
         
         if os.path.exists(audio_file):
             print("1. 讀取音訊檔案")

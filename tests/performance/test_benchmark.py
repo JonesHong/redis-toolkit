@@ -9,7 +9,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from redis_toolkit import RedisToolkit, RedisConnectionConfig, RedisOptions
-from batch_operations_benchmark import BatchOperationsBenchmark
+from tests.performance.batch_operations_benchmark import BatchOperationsBenchmark
 from pretty_loguru import create_logger
 
 # 設定日誌為 WARNING 級別以減少輸出

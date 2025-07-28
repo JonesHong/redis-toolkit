@@ -81,8 +81,8 @@ def run_basic_tests():
     """執行基本測試"""
     print("🧪 執行基本功能測試...")
     args = [
-        "tests/test_core.py",
-        "tests/test_serializers.py",
+        "tests/unit/test_core.py",
+        "tests/unit/test_serializers.py",
         "-v",
         "--tb=short"
     ]
@@ -93,7 +93,7 @@ def run_converter_tests():
     """執行轉換器測試"""
     print("🧪 執行轉換器功能測試...")
     args = [
-        "tests/test_converters.py",
+        "tests/unit/test_converters.py",
         "-v",
         "--tb=short"
     ]
@@ -104,7 +104,7 @@ def run_converter_integration_tests():
     """執行轉換器整合測試"""
     print("🧪 執行轉換器整合測試...")
     args = [
-        "tests/test_converters_integration.py",
+        "tests/integration/test_converters_integration.py",
         "-v",
         "--tb=short"
     ]
@@ -163,8 +163,8 @@ def run_media_tests():
     """執行媒體相關測試"""
     print("🎥 執行媒體處理測試...")
     args = [
-        "tests/test_converters.py",
-        "tests/test_converters_integration.py",
+        "tests/unit/test_converters.py",
+        "tests/integration/test_converters_integration.py",
         "-v",
         "--tb=short"
     ]
@@ -250,7 +250,7 @@ def run_example_tests():
     try:
         print("執行媒體範例程式...")
         result = subprocess.run([
-            sys.executable, "examples/media_example.py", "--test-mode"
+            sys.executable, "examples/real-world/media_processing/complete_example.py", "--test-mode"
         ], capture_output=True, text=True, timeout=30)
         
         if result.returncode == 0:

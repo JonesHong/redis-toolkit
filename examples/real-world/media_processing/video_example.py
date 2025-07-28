@@ -30,12 +30,15 @@ def video_caching_basics():
     
     from redis_toolkit.converters import get_converter
     
-    toolkit = RedisToolkit(options=RedisOptions(is_logger_info=False))
+    toolkit = RedisToolkit(options=RedisOptions(
+        is_logger_info=False,
+        max_value_size=100 * 1024 * 1024  # 100MB
+    ))
     video_converter = get_converter('video')
     
     try:
         # 檢查範例視訊檔案
-        video_file = "examples/data/BigBuckBunny_320x180.mp4"
+        video_file = "examples/real-world/media_processing/data/BigBuckBunny_320x180.mp4"
         
         if os.path.exists(video_file):
             print("1. 讀取視訊檔案")
@@ -116,7 +119,7 @@ def video_thumbnail_cache():
     video_converter = get_converter('video')
     
     try:
-        video_file = "examples/data/BigBuckBunny_320x180.mp4"
+        video_file = "examples/real-world/media_processing/data/BigBuckBunny_320x180.mp4"
         
         if os.path.exists(video_file):
             print("1. 擷取視訊關鍵幀作為縮圖")
@@ -379,17 +382,20 @@ def adaptive_bitrate_cache():
     """自適應位元率快取系統"""
     print("\n=== 自適應位元率快取系統 ===\n")
     
-    toolkit = RedisToolkit(options=RedisOptions(is_logger_info=False))
+    toolkit = RedisToolkit(options=RedisOptions(
+        is_logger_info=False,
+        max_value_size=600 * 1024 * 1024  # 600MB
+    ))
     
     try:
         print("1. 建立多位元率視訊快取")
         
         video_id = "adaptive_video_001"
         qualities = [
-            {"name": "1080p", "bitrate": 5000, "resolution": "1920x1080", "size_mb": 500},
-            {"name": "720p", "bitrate": 2500, "resolution": "1280x720", "size_mb": 250},
-            {"name": "480p", "bitrate": 1000, "resolution": "854x480", "size_mb": 100},
-            {"name": "360p", "bitrate": 500, "resolution": "640x360", "size_mb": 50}
+            {"name": "1080p", "bitrate": 5000, "resolution": "1920x1080", "size_mb": 50},
+            {"name": "720p", "bitrate": 2500, "resolution": "1280x720", "size_mb": 25},
+            {"name": "480p", "bitrate": 1000, "resolution": "854x480", "size_mb": 10},
+            {"name": "360p", "bitrate": 500, "resolution": "640x360", "size_mb": 5}
         ]
         
         # 模擬快取不同品質的視訊

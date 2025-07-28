@@ -13,12 +13,12 @@ import subprocess
 import threading
 import signal
 import sys
-from redis_toolkit import RedisToolkit
+from redis_toolkit import RedisToolkit, RedisOptions
 
 # 測試檔案路徑
-IMAGE_PATH = 'examples/data/BigBuckBunny.jpg'
-AUDIO_PATH = 'examples/data/RobertoPrado_CourtScheme.mp3'
-VIDEO_PATH = 'examples/data/BigBuckBunny_320x180.mp4'
+IMAGE_PATH = 'examples/real-world/media_processing/data/BigBuckBunny.jpg'
+AUDIO_PATH = 'examples/real-world/media_processing/data/RobertoPrado_CourtScheme.mp3'
+VIDEO_PATH = 'examples/real-world/media_processing/data/BigBuckBunny_320x180.mp4'
 
 # 全域變數記錄所有暫存檔案
 ALL_TEMP_FILES = []
@@ -150,7 +150,9 @@ def test_basic_storage():
     print("🧪 測試 1: 基本媒體存儲")
     print("="*50)
     
-    toolkit = RedisToolkit()
+    toolkit = RedisToolkit(options=RedisOptions(
+        max_value_size=100 * 1024 * 1024  # 100MB
+    ))
     
     try:
         existing_files = check_files()
@@ -208,7 +210,9 @@ def test_converters():
         
         print(f"可用轉換器: {list_converters()}")
         
-        toolkit = RedisToolkit()
+        toolkit = RedisToolkit(options=RedisOptions(
+            max_value_size=100 * 1024 * 1024  # 100MB
+        ))
         
         # 圖片轉換測試
         if os.path.exists(IMAGE_PATH):
@@ -326,10 +330,15 @@ def test_pubsub_sharing():
         # 建立發布訂閱
         subscriber = RedisToolkit(
             channels=["media_sharing"],
-            message_handler=media_handler
+            message_handler=media_handler,
+            options=RedisOptions(
+                max_value_size=100 * 1024 * 1024  # 100MB
+            )
         )
         
-        publisher = RedisToolkit()
+        publisher = RedisToolkit(options=RedisOptions(
+            max_value_size=100 * 1024 * 1024  # 100MB
+        ))
         
         time.sleep(0.5)  # 等待訂閱者啟動
         
@@ -441,10 +450,15 @@ def test_realtime_analytics():
         # 建立圖表訂閱
         subscriber = RedisToolkit(
             channels=["analytics"],
-            message_handler=chart_handler
+            message_handler=chart_handler,
+            options=RedisOptions(
+                max_value_size=100 * 1024 * 1024  # 100MB
+            )
         )
         
-        publisher = RedisToolkit()
+        publisher = RedisToolkit(options=RedisOptions(
+            max_value_size=100 * 1024 * 1024  # 100MB
+        ))
         time.sleep(0.5)
         
         print("📊 生成並分享即時圖表...")

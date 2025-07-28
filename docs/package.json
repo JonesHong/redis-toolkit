@@ -1,0 +1,19 @@
+{
+  "name": "redis-toolkit-docs",
+  "version": "1.0.0",
+  "description": "Redis Toolkit Documentation",
+  "main": "index.js",
+  "scripts": {
+    "dev": "vuepress dev .",
+    "build": "vuepress build .",
+    "deploy": "sh deploy.sh"
+  },
+  "keywords": ["redis", "toolkit", "documentation"],
+  "author": "Redis Toolkit Team",
+  "license": "MIT",
+  "devDependencies": {
+    "@vuepress/plugin-back-to-top": "2.0.0-rc.62",
+    "@vuepress/plugin-search": "2.0.0-rc.73", 
+    "vuepress": "2.0.0-rc.18"
+  }
+}
