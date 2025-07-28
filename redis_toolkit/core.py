@@ -7,19 +7,26 @@ Redis Toolkit 核心模組
 import json
 import threading
 import time
-import logging
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Callable, Dict, List, Optional, Union, Tuple
 
 import redis
 from redis import Redis
+from pretty_loguru import create_logger
 
 from .options import RedisOptions, RedisConnectionConfig, DEFAULT_OPTIONS
 from .exceptions import RedisToolkitError, SerializationError, ValidationError, wrap_redis_exceptions
 from .utils.serializers import serialize_value, deserialize_value
-from .utils.retry import simple_retry
+from .utils.retry import simple_retry, with_retry
+from .pool_manager import pool_manager
 
-# 設定預設日誌
-logger = logging.getLogger(__name__)
+# 使用 pretty-loguru 設定日誌
+logger = create_logger(
+    name="redis_toolkit",
+    level="INFO",
+    log_path=None,  # 預設不寫入檔案
+    rotation=None,
+    retention=None
+)
 
 
 class RedisToolkit:
@@ -30,6 +37,7 @@ class RedisToolkit:
 
     def __init__(
         self,
+        redis: Optional[Redis] = None,
         config: Optional[RedisConnectionConfig] = None,
         channels: Optional[List[str]] = None,
         message_handler: Optional[Callable[[str, Any], None]] = None,
@@ -39,17 +47,47 @@ class RedisToolkit:
         初始化 RedisToolkit
 
         參數:
-            config: Redis 連線配置
+            redis: 現有的 Redis 客戶端實例（與 config 二選一）
+            config: Redis 連線配置（與 redis 二選一）
             channels: 要訂閱的頻道列表
             message_handler: 訊息處理函數
             options: 工具包配置選項
+            
+        使用範例:
+            # 方式 1：傳入現有的 Redis 實例
+            redis_client = Redis(host='localhost', port=6379)
+            toolkit = RedisToolkit(redis=redis_client)
+            
+            # 方式 2：使用配置創建（支援連接池管理）
+            config = RedisConnectionConfig(host='localhost', port=6379)
+            toolkit = RedisToolkit(config=config)
         """
         self.options = options or DEFAULT_OPTIONS
         self.run_subscriber = True
         self.sub_thread: Optional[threading.Thread] = None
+        
+        # 更新日誌級別
+        global logger
+        logger = create_logger(
+            name="redis_toolkit",
+            level=self.options.log_level,
+            log_path=self.options.log_path,
+            rotation="daily" if self.options.log_path else None,
+            retention="7 days" if self.options.log_path else None
+        )
 
         # 初始化 Redis 客戶端
-        self._init_redis_client(config)
+        if redis is not None and config is not None:
+            raise ValueError("不能同時提供 redis 和 config 參數，請選擇其中一種方式")
+        elif redis is not None:
+            # 使用提供的 Redis 實例
+            self._redis_client = redis
+            self._using_shared_pool = False
+            self._config = None
+            logger.debug("使用提供的 Redis 實例")
+        else:
+            # 使用配置創建
+            self._init_redis_client(config)
 
         # 發布訂閱相關
         self._channels = channels
@@ -62,7 +100,24 @@ class RedisToolkit:
         """初始化 Redis 客戶端"""
         if config is None:
             config = RedisConnectionConfig()
-        self._redis_client = Redis(**config.to_redis_kwargs())
+        
+        # 保存配置以便清理時使用
+        self._config = config
+        
+        # 根據配置決定是否使用共享連接池
+        if self.options.use_connection_pool:
+            # 使用連接池管理器
+            self._redis_client = pool_manager.create_client(
+                config, 
+                self.options.max_connections
+            )
+            self._using_shared_pool = True
+            logger.debug("使用共享連接池")
+        else:
+            # 創建獨立的客戶端
+            self._redis_client = Redis(**config.to_redis_kwargs())
+            self._using_shared_pool = False
+            logger.debug("使用獨立連接")
 
     @property
     def client(self) -> Redis:
@@ -145,9 +200,19 @@ class RedisToolkit:
             log_content = self._format_log(original_value, opts.max_log_size)
             logger.info(f"設定 {name}: {log_content}")
 
+        # 定義內部方法以應用重試裝飾器
+        @with_retry(
+            max_attempts=self.options.retry_attempts,
+            delay=self.options.retry_delay,
+            backoff_factor=self.options.retry_backoff,
+            exceptions=(redis.ConnectionError, redis.TimeoutError)
+        )
+        def _set_with_retry():
+            return self._redis_client.set(name, serialized_value)
+        
         try:
             # 存儲到 Redis（使用重試）
-            simple_retry(self._redis_client.set)(name, serialized_value)
+            _set_with_retry()
         except redis.RedisError as e:
             raise RedisToolkitError(f"Redis 操作失敗 for key '{name}'") from e
 
@@ -164,9 +229,19 @@ class RedisToolkit:
         """
         opts = options or self.options
 
+        # 定義內部方法以應用重試裝飾器
+        @with_retry(
+            max_attempts=self.options.retry_attempts,
+            delay=self.options.retry_delay,
+            backoff_factor=self.options.retry_backoff,
+            exceptions=(redis.ConnectionError, redis.TimeoutError)
+        )
+        def _get_with_retry():
+            return self._redis_client.get(name)
+        
         try:
             # 從 Redis 取得資料（使用重試）
-            raw_value = simple_retry(self._redis_client.get)(name)
+            raw_value = _get_with_retry()
 
             if raw_value is None:
                 return None
@@ -196,7 +271,17 @@ class RedisToolkit:
         回傳:
             bool: 是否成功刪除
         """
-        result = simple_retry(self._redis_client.delete)(name)
+        # 定義內部方法以應用重試裝飾器
+        @with_retry(
+            max_attempts=self.options.retry_attempts,
+            delay=self.options.retry_delay,
+            backoff_factor=self.options.retry_backoff,
+            exceptions=(redis.ConnectionError, redis.TimeoutError)
+        )
+        def _delete_with_retry():
+            return self._redis_client.delete(name)
+        
+        result = _delete_with_retry()
 
         logger.info(f"RedisToolkit 刪除 {name}")
         return bool(result)
@@ -214,57 +299,92 @@ class RedisToolkit:
         opts = options or self.options
         
         # 預先驗證和序列化
+        serialized_data, total_size = self._prepare_batch_data(mapping, opts)
+        
+        # 驗證總大小
+        self._validate_batch_size(total_size, opts)
+        
+        # 執行批次設定
+        self._execute_batch_set(serialized_data, len(mapping), opts)
+    
+    def _prepare_batch_data(
+        self, mapping: Dict[str, Any], opts: RedisOptions
+    ) -> Tuple[Dict[str, bytes], int]:
+        """準備批次資料，返回序列化資料和總大小"""
         serialized_data = {}
         total_size = 0
         
         for key, value in mapping.items():
-            # 驗證鍵名長度
-            if opts.enable_validation and len(key) > opts.max_key_length:
-                raise ValidationError(
-                    f"批次操作中鍵名長度 ({len(key)}) 超過限制 ({opts.max_key_length})"
-                )
-            
-            try:
-                serialized_value = serialize_value(value)
-            except SerializationError:
-                raise
-            except Exception as e:
-                raise SerializationError(
-                    f"批次操作中序列化鍵 '{key}' 的值時失敗",
-                    original_data=value,
-                    original_exception=e
-                ) from e
-            
-            # 驗證單一值大小
-            if opts.enable_validation and len(serialized_value) > opts.max_value_size:
-                raise ValidationError(
-                    f"批次操作中資料大小 ({len(serialized_value)} bytes) "
-                    f"超過限制 ({opts.max_value_size} bytes) for key '{key}'"
-                )
-            
+            serialized_value = self._validate_and_serialize_batch_item(key, value, opts)
             serialized_data[key] = serialized_value
             total_size += len(serialized_value)
         
-        # 驗證總大小（批次操作的總大小限制為單一值限制的 10 倍）
+        return serialized_data, total_size
+    
+    def _validate_and_serialize_batch_item(
+        self, key: str, value: Any, opts: RedisOptions
+    ) -> bytes:
+        """驗證並序列化單個批次項目"""
+        # 驗證鍵名長度
+        if opts.enable_validation and len(key) > opts.max_key_length:
+            raise ValidationError(
+                f"批次操作中鍵名長度 ({len(key)}) 超過限制 ({opts.max_key_length})"
+            )
+        
+        try:
+            serialized_value = serialize_value(value)
+        except SerializationError:
+            raise
+        except Exception as e:
+            raise SerializationError(
+                f"批次操作中序列化鍵 '{key}' 的值時失敗",
+                original_data=value,
+                original_exception=e
+            ) from e
+        
+        # 驗證單一值大小
+        if opts.enable_validation and len(serialized_value) > opts.max_value_size:
+            raise ValidationError(
+                f"批次操作中資料大小 ({len(serialized_value)} bytes) "
+                f"超過限制 ({opts.max_value_size} bytes) for key '{key}'"
+            )
+        
+        return serialized_value
+    
+    def _validate_batch_size(self, total_size: int, opts: RedisOptions) -> None:
+        """驗證批次總大小"""
         batch_size_limit = opts.max_value_size * 10
         if opts.enable_validation and total_size > batch_size_limit:
             raise ValidationError(
                 f"批次操作總大小 ({total_size} bytes) "
                 f"超過限制 ({batch_size_limit} bytes)"
             )
-
-        try:
+    
+    def _execute_batch_set(
+        self, serialized_data: Dict[str, bytes], count: int, opts: RedisOptions
+    ) -> None:
+        """執行批次設定操作"""
+        @with_retry(
+            max_attempts=self.options.retry_attempts,
+            delay=self.options.retry_delay,
+            backoff_factor=self.options.retry_backoff,
+            exceptions=(redis.ConnectionError, redis.TimeoutError)
+        )
+        def _batch_set_with_retry():
             with self._redis_client.pipeline() as pipe:
                 for key, serialized_value in serialized_data.items():
                     pipe.set(key, serialized_value)
-                pipe.execute()
-
+                return pipe.execute()
+        
+        try:
+            _batch_set_with_retry()
+            
             if opts.is_logger_info:
-                logger.info(f"批次設定 {len(mapping)} 個鍵")
-
+                logger.info(f"批次設定 {count} 個鍵")
+                
         except redis.RedisError as e:
             raise RedisToolkitError(
-                f"批次設定 {len(mapping)} 個鍵的 Redis 操作失敗"
+                f"批次設定 {count} 個鍵的 Redis 操作失敗"
             ) from e
 
     def batch_get(
@@ -282,8 +402,18 @@ class RedisToolkit:
         """
         opts = options or self.options
 
+        # 定義內部方法以應用重試裝飾器
+        @with_retry(
+            max_attempts=self.options.retry_attempts,
+            delay=self.options.retry_delay,
+            backoff_factor=self.options.retry_backoff,
+            exceptions=(redis.ConnectionError, redis.TimeoutError)
+        )
+        def _batch_get_with_retry():
+            return self._redis_client.mget(names)
+        
         try:
-            raw_values = self._redis_client.mget(names)
+            raw_values = _batch_get_with_retry()
             result = {}
 
             for name, raw_value in zip(names, raw_values):
@@ -324,8 +454,18 @@ class RedisToolkit:
                 log_content = self._format_log(data, opts.max_log_size)
                 logger.info(f"發布到 {channel}: {log_content}")
 
+            # 定義內部方法以應用重試裝飾器
+            @with_retry(
+                max_attempts=self.options.retry_attempts,
+                delay=self.options.retry_delay,
+                backoff_factor=self.options.retry_backoff,
+                exceptions=(redis.ConnectionError, redis.TimeoutError)
+            )
+            def _publish_with_retry():
+                return self._redis_client.publish(channel, message)
+            
             # 發布訊息（使用重試）
-            simple_retry(self._redis_client.publish)(channel, message)
+            _publish_with_retry()
 
         except Exception as e:
             raise SerializationError(
@@ -352,12 +492,6 @@ class RedisToolkit:
 
         self.run_subscriber = False
 
-        # 嘗試透過發送特殊訊息來中斷監聽迴圈
-        try:
-            self._redis_client.publish("__redis_toolkit_stop__", "stop")
-        except Exception:
-            pass  # 忽略發布失敗的錯誤
-
         # 等待執行緒結束
         if self.sub_thread and self.sub_thread.is_alive():
             self.sub_thread.join(timeout=self.options.subscriber_stop_timeout)
@@ -368,44 +502,81 @@ class RedisToolkit:
 
     def _subscriber_loop(self) -> None:
         """訂閱者主迴圈"""
-        while self.run_subscriber:
+        pubsub = None
+        
+        try:
+            while self.run_subscriber:
+                try:
+                    # 初始化 pubsub
+                    if pubsub is None and self._channels:
+                        pubsub = self._initialize_pubsub()
+                    
+                    if not self._channels:
+                        logger.info("沒有頻道需要訂閱")
+                        break
+                    
+                    # 讀取並處理消息
+                    self._read_and_process_message(pubsub)
+                    
+                except redis.ConnectionError as e:
+                    pubsub = self._handle_connection_error(pubsub, e)
+                except Exception as e:
+                    self._handle_unexpected_error(e)
+        
+        finally:
+            self._cleanup_pubsub(pubsub)
+            logger.debug("訂閱者迴圈已結束")
+    
+    def _initialize_pubsub(self):
+        """初始化 pubsub 連接"""
+        pubsub = self._redis_client.pubsub()
+        pubsub.subscribe(*self._channels)
+        channel_names = ", ".join(self._channels)
+        logger.info(f"正在監聽頻道 '{channel_names}'")
+        
+        # 忽略訂閱確認消息
+        for _ in self._channels:
+            pubsub.get_message(timeout=0.1)
+        
+        return pubsub
+    
+    def _read_and_process_message(self, pubsub) -> None:
+        """讀取並處理消息"""
+        message = pubsub.get_message(
+            ignore_subscribe_messages=True,
+            timeout=1.0  # 1 秒超時，讓線程可以定期檢查退出標誌
+        )
+        
+        if message is not None and message["type"] == "message":
+            self._process_message(message)
+    
+    def _handle_connection_error(self, pubsub, error: redis.ConnectionError):
+        """處理連接錯誤"""
+        logger.error(f"Redis 連線錯誤: {error}")
+        
+        # 清理現有的 pubsub
+        if pubsub:
             try:
-                pubsub = self._redis_client.pubsub()
-                if self._channels:
-                    # 訂閱使用者頻道和停止訊號頻道
-                    all_channels = list(self._channels) + ["__redis_toolkit_stop__"]
-                    pubsub.subscribe(*all_channels)
-                    channel_names = ", ".join(self._channels)
-                    logger.info(f"正在監聽頻道 '{channel_names}'")
-
-                    for message in pubsub.listen():
-                        if not self.run_subscriber:
-                            break
-
-                        if message["type"] == "message":
-                            channel = message["channel"].decode()
-
-                            # 檢查是否為停止訊號
-                            if channel == "__redis_toolkit_stop__":
-                                logger.debug("收到停止訊號，中斷訂閱迴圈")
-                                break
-
-                            # 處理正常訊息
-                            self._process_message(message)
-
-                    pubsub.close()
-                else:
-                    logger.info("沒有頻道需要訂閱")
-                    break
-
-            except redis.ConnectionError as e:
-                logger.error(f"Redis 連線錯誤: {e}")
-                self._wait_and_retry_connection()
-            except Exception as e:
-                logger.error(f"訂閱者發生未預期錯誤: {e}")
-                time.sleep(self.options.subscriber_retry_delay)
-
-        logger.debug("訂閱者迴圈已結束")
+                pubsub.close()
+            except Exception:
+                pass
+        
+        # 等待並重試連接
+        self._wait_and_retry_connection()
+        return None
+    
+    def _handle_unexpected_error(self, error: Exception) -> None:
+        """處理未預期的錯誤"""
+        logger.error(f"訂閱者發生未預期錯誤: {error}")
+        time.sleep(self.options.subscriber_retry_delay)
+    
+    def _cleanup_pubsub(self, pubsub) -> None:
+        """清理 pubsub 連接"""
+        if pubsub:
+            try:
+                pubsub.close()
+            except Exception:
+                pass
 
     def _process_message(self, message: dict) -> None:
         """處理接收到的訊息"""
@@ -452,43 +623,55 @@ class RedisToolkit:
             str: 格式化後的日誌字串
         """
         if isinstance(data, bytes):
-            try:
-                decoded_data = data.decode("utf-8")
-                return self._truncate_string(decoded_data, max_size)
-            except UnicodeDecodeError:
-                return f"<位元組: {len(data)} 位元組已隱藏>"
-
+            return self._format_bytes_log(data, max_size)
         elif isinstance(data, dict):
-            try:
-                # 對於大字典，只顯示鍵的數量
-                if len(str(data)) > max_size * 2:
-                    return f"<字典: {len(data)} 個鍵>"
-                json_data = json.dumps(data, ensure_ascii=False)
-                return self._truncate_string(json_data, max_size)
-            except Exception as e:
-                return f"<字典: {len(data)} 個鍵, 錯誤: {str(e)}>"
-
+            return self._format_dict_log(data, max_size)
         elif isinstance(data, (list, tuple)):
-            try:
-                # 對於大列表/元組，只顯示元素數量
-                if len(str(data)) > max_size * 2:
-                    return f"<{type(data).__name__}: {len(data)} 個元素>"
-                return self._truncate_string(str(data), max_size)
-            except Exception:
-                return f"<{type(data).__name__}: {len(data)} 個元素>"
-
+            return self._format_sequence_log(data, max_size)
         elif isinstance(data, str):
             return self._truncate_string(data, max_size)
-
         else:
-            try:
-                data_str = str(data)
-                # 對於其他大型物件，顯示類型和大小
-                if len(data_str) > max_size * 2:
-                    return f"<{type(data).__name__} 物件: {len(data_str)} 字元>"
-                return self._truncate_string(data_str, max_size)
-            except Exception:
-                return f"<{type(data).__name__} 物件>"
+            return self._format_object_log(data, max_size)
+    
+    def _format_bytes_log(self, data: bytes, max_size: int) -> str:
+        """格式化位元組日誌"""
+        try:
+            decoded_data = data.decode("utf-8")
+            return self._truncate_string(decoded_data, max_size)
+        except UnicodeDecodeError:
+            return f"<位元組: {len(data)} 位元組已隱藏>"
+    
+    def _format_dict_log(self, data: dict, max_size: int) -> str:
+        """格式化字典日誌"""
+        try:
+            # 對於大字典，只顯示鍵的數量
+            if len(str(data)) > max_size * 2:
+                return f"<字典: {len(data)} 個鍵>"
+            json_data = json.dumps(data, ensure_ascii=False)
+            return self._truncate_string(json_data, max_size)
+        except Exception as e:
+            return f"<字典: {len(data)} 個鍵, 錯誤: {str(e)}>"
+    
+    def _format_sequence_log(self, data: Union[list, tuple], max_size: int) -> str:
+        """格式化序列（列表/元組）日誌"""
+        try:
+            # 對於大列表/元組，只顯示元素數量
+            if len(str(data)) > max_size * 2:
+                return f"<{type(data).__name__}: {len(data)} 個元素>"
+            return self._truncate_string(str(data), max_size)
+        except Exception:
+            return f"<{type(data).__name__}: {len(data)} 個元素>"
+    
+    def _format_object_log(self, data: Any, max_size: int) -> str:
+        """格式化其他物件日誌"""
+        try:
+            data_str = str(data)
+            # 對於其他大型物件，顯示類型和大小
+            if len(data_str) > max_size * 2:
+                return f"<{type(data).__name__} 物件: {len(data_str)} 字元>"
+            return self._truncate_string(data_str, max_size)
+        except Exception:
+            return f"<{type(data).__name__} 物件>"
 
     def _truncate_string(self, data: str, max_size: int) -> str:
         """
@@ -513,12 +696,17 @@ class RedisToolkit:
         # 明確關閉 Redis 連線
         if hasattr(self, "_redis_client") and self._redis_client:
             try:
-                # 關閉連線池
-                if hasattr(self._redis_client, "connection_pool"):
-                    self._redis_client.connection_pool.disconnect()
+                # 如果不是使用共享連接池，才需要關閉
+                if not getattr(self, '_using_shared_pool', False):
+                    # 關閉連線池
+                    if hasattr(self._redis_client, "connection_pool"):
+                        self._redis_client.connection_pool.disconnect()
 
-                # 關閉客戶端
-                self._redis_client.close()
+                    # 關閉客戶端
+                    self._redis_client.close()
+                else:
+                    # 使用共享連接池時，只需要釋放引用
+                    logger.debug("釋放共享連接池的引用")
 
             except Exception as e:
                 logger.warning(f"關閉 Redis 連線時發生警告: {e}")

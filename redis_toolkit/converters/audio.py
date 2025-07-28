@@ -45,34 +45,39 @@ class AudioConverter(BaseConverter):
     
     def _check_dependencies(self) -> None:
         """檢查音頻處理依賴"""
+        missing_packages = []
+        
+        # 檢查基本依賴
         try:
             import numpy as np
             self._np = np
-        except ImportError as e:
-            raise ImportError(
-                "音頻轉換需要 numpy。\n"
-                "請安裝：pip install numpy"
-            ) from e
+        except ImportError:
+            missing_packages.append('numpy')
         
-        # 根據格式選擇依賴
+        # 檢查格式特定依賴
         if self.format == 'wav':
             try:
                 from scipy.io import wavfile
                 self._scipy_wavfile = wavfile
-            except ImportError as e:
-                raise ImportError(
-                    "WAV 格式需要 scipy。\n"
-                    "請安裝：pip install redis-toolkit[audio] 或 pip install scipy"
-                ) from e
-        elif self.format in ['flac', 'ogg', 'mp3']:
+            except ImportError:
+                missing_packages.append('scipy')
+        
+        if self.format in ['flac', 'ogg', 'mp3', 'wav']:  # 所有格式都可以使用 soundfile
             try:
                 import soundfile as sf
                 self._soundfile = sf
-            except ImportError as e:
-                raise ImportError(
-                    f"{self.format.upper()} 格式需要 soundfile。\n"
-                    "請安裝：pip install soundfile"
-                ) from e
+            except ImportError:
+                # 如果是 WAV 且已經有 scipy，就不需要 soundfile
+                if self.format != 'wav' or 'scipy' in missing_packages:
+                    missing_packages.append('soundfile')
+        
+        if missing_packages:
+            from ..errors import ConverterDependencyError
+            raise ConverterDependencyError(
+                converter_name='audio',
+                missing_packages=missing_packages,
+                install_command='pip install redis-toolkit[audio]'
+            )
     
     @property
     def supported_formats(self) -> list:

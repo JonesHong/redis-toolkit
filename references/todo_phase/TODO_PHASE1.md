@@ -1,112 +1,142 @@
-# ASR_Hub 第一階段工作清單
+# Redis Toolkit 改進計畫 - Phase 1
 
-## 📋 階段目標
-建立專案基礎架構，完成配置管理系統，初始化日誌系統，確保所有基礎設施就緒。
+## 📋 目標
+根據架構分析報告（ARCHITECTURE_ANALYSIS_2025.md）的建議，改進 Redis Toolkit 以符合 PRINCIPLE.md 的所有核心原則。
 
-## ✅ 工作項目清單
+## ✅ 高優先級工作項目（P0）
 
-### 1. 專案基礎設置（Prerequisites）
-- [x] 1.1 建立專案根目錄 `/ASRHub`
-- [x] 1.2 初始化 Git 儲存庫
-- [x] 1.3 建立虛擬環境 `python -m venv venv`
-- [x] 1.4 啟動虛擬環境
+### 1. 整合 pretty-loguru（可觀察性改進）
+- [x] 1.1 安裝 pretty-loguru：`pip install pretty-loguru`
+- [x] 1.2 替換 redis_toolkit/core.py 中的日誌系統
+  - [x] 移除現有的 logging import
+  - [x] 改用 `from pretty_loguru import create_logger`
+  - [x] 更新所有 logger.info/debug/error 呼叫
+- [x] 1.3 更新 redis_toolkit/pool_manager.py 的日誌系統
+- [x] 1.4 更新 redis_toolkit/utils/retry.py 的日誌系統
+- [x] 1.5 在 pyproject.toml 和 requirements.txt 加入 pretty-loguru 依賴
+- [x] 1.6 測試日誌輸出格式是否符合預期
 
-### 2. 建立專案檔案結構
-- [x] 2.1 建立部分的目錄結構（根據 PROJECT_STRUCTURE.md），忽略 tests/, docs/, docker/, scripts/ 等目錄，保留以下結構：
+### 2. 完善配置管理系統
+- [x] 2.1 評估是否需要支援配置檔案（JSON/YAML）- 決定：作為函式庫不應依賴配置檔案
+- [x] 2.2 在 RedisOptions 中加入配置驗證方法
+  ```python
+  def validate(self) -> None:
+      """驗證配置的有效性"""
+      if self.max_connections and self.max_connections < 1:
+          raise ValueError("max_connections 必須大於 0")
+      # 其他驗證規則
   ```
-  - config/
-  - src/
-    - config/
-    - core/
-    - api/（含所有子目錄）
-    - pipeline/operators/（含所有子目錄）
-    - providers/（含所有子目錄）
-    - stream/
-    - utils/
-    - models/
+- [x] 2.3 為 RedisConnectionConfig 加入更多配置選項
+  - [x] connection_timeout
+  - [x] socket_timeout
+  - [x] retry_on_timeout
+  - [x] health_check_interval
+  - [x] SSL/TLS 支援
+- [x] 2.4 更新文檔說明新的配置選項
+
+### 3. 補充核心文檔
+- [x] 3.1 創建 docs/ 目錄
+- [x] 3.2 編寫 docs/API.md
+  - [x] 列出所有公開方法的詳細說明
+  - [x] 包含參數、返回值、異常說明
+  - [x] 提供使用範例
+- [x] 3.3 編寫 docs/QUICKSTART.md
+  - [x] 安裝說明
+  - [x] 基本使用範例
+  - [x] 常見使用場景
+- [x] 3.4 創建 docs/CHANGELOG.md
+  - [x] 記錄版本更新歷史
+  - [x] 從 0.3.0 版本開始記錄
+
+## ✅ 中優先級工作項目（P1）
+
+### 4. 完善範例程式
+- [x] 4.1 創建 examples/basic_usage.py
+  - [x] 展示基本的 set/get 操作
+  - [x] 展示兩種初始化方式
+- [x] 4.2 創建 examples/batch_operations.py
+  - [x] 批次設定和取得範例
+  - [x] 性能比較展示
+- [x] 4.3 創建 examples/pubsub_example.py
+  - [x] 發布者和訂閱者範例
+  - [x] 多頻道訂閱展示
+- [x] 4.4 創建 examples/image_transfer.py
+  - [x] 圖片編碼和解碼範例
+  - [x] 透過 Redis 傳輸圖片
+- [x] 4.5 創建 examples/audio_streaming.py
+  - [x] 音頻數據處理範例
+- [x] 4.6 創建 examples/video_caching.py
+  - [x] 視頻緩存範例
+
+### 5. 實現 @with_retry 裝飾器
+- [x] 5.1 在 redis_toolkit/utils/retry.py 中實現 @with_retry
+  ```python
+  def with_retry(max_attempts=3, delay=0.1, backoff=2.0):
+      """重試裝飾器，支援指數退避"""
+      def decorator(func):
+          @functools.wraps(func)
+          def wrapper(*args, **kwargs):
+              return simple_retry(func, max_attempts, delay, backoff, *args, **kwargs)
+          return wrapper
+      return decorator
   ```
-- [x] 2.2 在空目錄中建立 `.gitkeep` 檔案
-- [x] 2.3 建立所有必要的 `__init__.py` 檔案
+- [x] 5.2 在 RedisToolkit 的關鍵方法上應用 @with_retry
+- [x] 5.3 更新測試以驗證裝飾器功能
 
-### 3. 建立專案基礎檔案
-- [x] 3.1 建立 `.gitignore` 檔案（包含 config/base.yaml 等敏感資料）
-- [x] 3.2 建立 `requirements.txt`（包含 yaml2py==0.2.0、pretty-loguru==1.1.3 及其他依賴）
-- [x] 3.3 建立 `setup.py` 專案安裝配置
-- [x] 3.4 建立 `pyproject.toml` Python 專案配置
-- [x] 3.5 建立 `LICENSE` 檔案（MIT 授權）
-- [x] 3.6 建立 `README.md` 專案說明文件
-- [x] 3.7 建立 `Makefile`（開發工具指令）
+### 6. 測試覆蓋率提升
+- [x] 6.1 安裝 coverage 工具：`pip install coverage`
+- [x] 6.2 測量當前覆蓋率：`pytest --cov=redis_toolkit --cov-report=html`
+- [x] 6.3 識別未覆蓋的代碼區域
+- [x] 6.4 補充單元測試，目標達到 65% 覆蓋率（實際達到 69%）
+- [ ] 6.5 在 CI/CD 中加入覆蓋率檢查
 
-### 4. 安裝核心套件
-- [x] 4.1 安裝 yaml2py：`pip install yaml2py`
-- [x] 4.2 安裝 pretty-loguru：`pip install pretty-loguru`
-- [x] 4.3 安裝其他基礎依賴：`pip install pyyaml watchdog python-dotenv click rich art`
+## ✅ 低優先級工作項目（P2）
 
-### 5. 建立 YAML 配置系統
-- [x] 5.1 建立 `config/base.sample.yaml` 範例配置檔（包含所有配置選項）
-  - 系統基本設定（name, version, mode, debug）
-  - 日誌設定（path, rotation, retention, level, format）
-  - API 設定（http_sse, websocket, grpc, redis）
-  - Pipeline 設定（operators, buffer_size, sample_rate）
-  - Provider 設定（default, whisper, funasr, vosk 等）
-  - 喚醒詞設定（enabled, type, keywords, sensitivity）
-  - 串流設定（silence_timeout, manual_termination, busy_mode）
-- [x] 5.2 複製 `base.sample.yaml` 為 `base.yaml`
-- [x] 5.3 編輯 `base.yaml` 設定實際配置值（特別是敏感資料）
+### 7. 重構長函數
+- [x] 7.1 分析 _subscriber_loop 函數（約60行）
+- [x] 7.2 將 _subscriber_loop 拆分為更小的函數
+  - [x] _initialize_pubsub
+  - [x] _read_and_process_message
+  - [x] _handle_connection_error
+  - [x] _handle_unexpected_error
+  - [x] _cleanup_pubsub
+- [x] 7.3 簡化 _format_log 函數（拆分為多個輔助函數）
+- [x] 7.4 確保重構後所有測試通過
 
-### 6. 使用 yaml2py 生成配置類別
-- [x] 6.1 執行 yaml2py 生成配置類別：`yaml2py --config config/base.yaml --output ./src/config`
-- [x] 6.2 確認生成檔案：
-  - `src/config/__init__.py`
-  - `src/config/schema.py`（配置類別定義）
-  - `src/config/manager.py`（ConfigManager 單例）
-
-### 7. 建立日誌系統
-- [x] 7.1 建立 `src/utils/logger.py`
-  - 匯入 pretty_loguru 和 ConfigManager
-  - 實作 `get_logger(module_name: str)` 函式
-  - 根據環境選擇配置模板（development/production）
-  - 從 ConfigManager 讀取日誌配置
-
-### 8. 建立核心模組基礎檔案
-- [x] 8.1 建立 `src/core/asr_hub.py`（主要入口類別）
-  - 匯入 ConfigManager 和 logger
-  - 建立 ASRHub 類別
-  - 初始化配置讀取
-  - 使用 pretty-loguru 輸出啟動訊息
-- [x] 8.2 建立 `src/core/exceptions.py`（自定義異常類別）
-- [x] 8.3 建立 `src/core/session_manager.py`（Session 管理骨架）
-- [x] 8.4 建立 `src/core/fsm.py`（有限狀態機骨架）
-
-### 9. 建立基礎類別檔案
-- [x] 9.1 建立 `src/api/base.py`（API 基礎類別）
-- [x] 9.2 建立 `src/pipeline/base.py`（Pipeline 基礎類別）
-- [x] 9.3 建立 `src/pipeline/operators/base.py`（Operator 基礎類別）
-- [x] 9.4 建立 `src/providers/base.py`（Provider 基礎類別）
-
-
-### 12. 版本控制
-- [x] 12.1 執行 `git add .`
-- [x] 12.2 執行 `git commit -m "feat: 完成第一階段基礎架構建置"`
-- [x] 12.3 建立標籤 `git tag v0.1.0-alpha`
+### 8. 性能基準測試
+- [x] 8.1 創建 benchmarks/ 目錄
+- [x] 8.2 編寫批次操作性能測試
+- [x] 8.3 編寫序列化性能測試
+- [x] 8.4 編寫連接池效率測試
+- [x] 8.5 生成性能報告並記錄基準值
 
 ## 🔍 驗收標準
-1. ✅ 所有目錄和檔案結構已建立
-2. ✅ yaml2py 和 pretty-loguru 已安裝並可正常使用
-3. ✅ 配置系統可正確載入 YAML 並生成型別安全的類別
-4. ✅ 日誌系統可正確初始化並輸出美化日誌
-5. ✅ 環境變數替換功能正常運作
+
+### Phase 1 完成標準：
+1. ✅ pretty-loguru 已整合，所有日誌使用新格式
+2. ✅ 配置管理系統支援驗證功能
+3. ✅ 核心文檔（API.md、QUICKSTART.md）已完成
+
+### Phase 2 完成標準：
+1. ✅ 所有 6 個範例程式可正常運行
+2. ✅ @with_retry 裝飾器已實現並應用
+3. ✅ 測試覆蓋率達到 65% 以上
+
+### Phase 3 完成標準：
+1. ✅ 長函數已重構，每個函數不超過 30 行
+2. ✅ 性能基準測試套件完整
+3. ✅ 所有改進項目都有對應的測試
 
 ## 📝 注意事項
-1. 確保 `config/base.yaml` 不被提交到版本控制（已加入 .gitignore）
-2. 所有敏感資料使用環境變數或在 base.yaml 中設定
-3. 遵循 PRINCIPLE.md 中的所有開發原則
-4. 使用 pretty-loguru 格式化所有日誌輸出
-5. 確保型別安全，充分利用 yaml2py 生成的類別
 
-
+1. 每完成一個工作項目都要運行測試確保沒有破壞現有功能
+2. 遵循 PRINCIPLE.md 中的所有開發原則
+3. 使用 pretty-loguru 時要保持日誌格式的一致性
+4. 文檔要包含充分的範例代碼
+5. 優先完成 P0 項目，它們對專案合規性影響最大
 
 ---
-建立時間：2025-07-24
-最後更新：2025-07-24
-負責人：ASR Hub Team
+建立時間：2025-07-28
+最後更新：2025-07-28
+狀態：Phase 1 所有任務已完成（除了 6.5 CI/CD 覆蓋率檢查，根據用戶要求跳過）
+負責人：Redis Toolkit Team

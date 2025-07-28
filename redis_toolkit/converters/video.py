@@ -28,16 +28,27 @@ class VideoConverter(BaseConverter):
     
     def _check_dependencies(self) -> None:
         """檢查 OpenCV 依賴"""
+        missing_packages = []
+        
         try:
             import cv2
-            import numpy as np
             self._cv2 = cv2
+        except ImportError:
+            missing_packages.append('opencv-python')
+        
+        try:
+            import numpy as np
             self._np = np
-        except ImportError as e:
-            raise ImportError(
-                "視頻轉換需要 OpenCV。\n"
-                "請安裝：pip install redis-toolkit[cv2] 或 pip install opencv-python numpy"
-            ) from e
+        except ImportError:
+            missing_packages.append('numpy')
+        
+        if missing_packages:
+            from ..errors import ConverterDependencyError
+            raise ConverterDependencyError(
+                converter_name='video',
+                missing_packages=missing_packages,
+                install_command='pip install redis-toolkit[video]'
+            )
     
     @property
     def supported_formats(self) -> list:

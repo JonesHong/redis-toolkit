@@ -1,0 +1,26 @@
+{
+  "generated_at": "2025-07-28 17:14:29",
+  "redis_toolkit_version": "0.3.0",
+  "benchmarks": {
+    "batch_operations": {
+      "batch_vs_single_improvement": 15.605127476135047,
+      "pipeline_vs_single_improvement": 16.812640172880624
+    },
+    "serialization": {
+      "vs_json_serialize": 1.7653383833849787,
+      "vs_json_deserialize": 1.6438692348016526,
+      "vs_pickle_serialize": 62.406831264209416,
+      "vs_pickle_deserialize": 46.37225692883529
+    },
+    "connection_pool": {
+      "single_thread_improvement": 0.9920693356091222,
+      "connection_overhead_reduction": 5.215212041278662,
+      "multi_thread_improvements": {
+        "5": 0.965004730447739,
+        "10": 0.9878287405959274,
+        "20": 1.0091796867793763,
+        "50": 1.0264478022101713
+      }
+    }
+  }
+}

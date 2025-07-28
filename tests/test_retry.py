@@ -8,7 +8,7 @@ import pytest
 import time
 from unittest.mock import Mock, patch
 import redis
-from redis_toolkit.utils.retry import simple_retry
+from redis_toolkit.utils.retry import simple_retry, with_retry
 
 
 class TestSimpleRetry:
@@ -312,6 +312,192 @@ class TestRetryEdgeCases:
         
         # 應該有延遲但很小
         assert 0.001 <= end_time - start_time < 0.1
+
+
+class TestWithRetry:
+    """進階重試裝飾器測試"""
+    
+    def test_successful_function(self):
+        """測試成功執行的函數"""
+        
+        @with_retry(max_attempts=3, delay=0.01)
+        def successful_function():
+            return "success"
+        
+        result = successful_function()
+        assert result == "success"
+    
+    def test_retry_on_redis_error(self):
+        """測試 Redis 錯誤時的重試"""
+        call_count = [0]
+        
+        @with_retry(max_attempts=3, delay=0.01, backoff_factor=2)
+        def failing_function():
+            call_count[0] += 1
+            if call_count[0] < 3:
+                raise redis.ConnectionError("模擬連線失敗")
+            return "success after retries"
+        
+        result = failing_function()
+        assert result == "success after retries"
+        assert call_count[0] == 3
+    
+    def test_max_attempts_exceeded(self):
+        """測試超過最大嘗試次數"""
+        call_count = [0]
+        
+        @with_retry(max_attempts=2, delay=0.01)
+        def always_failing_function():
+            call_count[0] += 1
+            raise redis.ConnectionError("持續失敗")
+        
+        with pytest.raises(redis.ConnectionError):
+            always_failing_function()
+        
+        assert call_count[0] == 2  # 總共嘗試 2 次
+    
+    def test_custom_exceptions(self):
+        """測試自訂異常類型"""
+        call_count = [0]
+        
+        class CustomError(Exception):
+            pass
+        
+        @with_retry(max_attempts=2, delay=0.01, exceptions=(CustomError,))
+        def custom_error_function():
+            call_count[0] += 1
+            if call_count[0] < 2:
+                raise CustomError("自訂錯誤")
+            return "成功"
+        
+        result = custom_error_function()
+        assert result == "成功"
+        assert call_count[0] == 2
+    
+    def test_single_exception_type(self):
+        """測試單一異常類型（非 tuple）"""
+        call_count = [0]
+        
+        @with_retry(max_attempts=2, delay=0.01, exceptions=redis.TimeoutError)
+        def timeout_function():
+            call_count[0] += 1
+            if call_count[0] < 2:
+                raise redis.TimeoutError("超時")
+            return "成功"
+        
+        result = timeout_function()
+        assert result == "成功"
+        assert call_count[0] == 2
+    
+    def test_exponential_backoff(self):
+        """測試指數退避延遲"""
+        @with_retry(max_attempts=3, delay=0.1, backoff_factor=2)
+        def function_with_delays():
+            raise redis.ConnectionError("測試延遲")
+        
+        with patch('time.sleep') as mock_sleep:
+            with pytest.raises(redis.ConnectionError):
+                function_with_delays()
+            
+            # 檢查 sleep 被呼叫的次數和參數
+            assert mock_sleep.call_count == 2  # 第1次和第2次重試需要延遲
+            call_args = [call[0][0] for call in mock_sleep.call_args_list]
+            
+            # 驗證指數退避：0.1, 0.2
+            assert call_args[0] == 0.1
+            assert call_args[1] == 0.2
+    
+    def test_on_retry_callback(self):
+        """測試重試回調函數"""
+        callback_calls = []
+        
+        def retry_callback(exception, attempt):
+            callback_calls.append((type(exception).__name__, attempt))
+        
+        @with_retry(max_attempts=3, delay=0.01, on_retry=retry_callback)
+        def failing_with_callback():
+            if len(callback_calls) < 2:
+                raise redis.ConnectionError("需要重試")
+            return "成功"
+        
+        result = failing_with_callback()
+        assert result == "成功"
+        assert len(callback_calls) == 2
+        assert callback_calls[0] == ("ConnectionError", 1)
+        assert callback_calls[1] == ("ConnectionError", 2)
+    
+    def test_callback_error_handling(self):
+        """測試回調函數錯誤處理"""
+        def bad_callback(exception, attempt):
+            raise ValueError("回調錯誤")
+        
+        @with_retry(max_attempts=2, delay=0.01, on_retry=bad_callback)
+        def function_with_bad_callback():
+            raise redis.ConnectionError("觸發回調")
+        
+        # 即使回調失敗，重試機制仍應正常運作
+        with patch('redis_toolkit.utils.retry.logger') as mock_logger:
+            with pytest.raises(redis.ConnectionError):
+                function_with_bad_callback()
+            
+            # 檢查回調錯誤被記錄
+            assert any("重試回調失敗" in str(call) for call in mock_logger.error.call_args_list)
+    
+    def test_function_with_arguments(self):
+        """測試帶參數的函數"""
+        @with_retry(max_attempts=1, delay=0.01)
+        def function_with_args(a, b, c=None):
+            return f"a={a}, b={b}, c={c}"
+        
+        result = function_with_args("test1", "test2", c="test3")
+        assert result == "a=test1, b=test2, c=test3"
+    
+    @patch('redis_toolkit.utils.retry.logger')
+    def test_success_after_retry_logging(self, mock_logger):
+        """測試重試後成功的日誌記錄"""
+        call_count = [0]
+        
+        @with_retry(max_attempts=3, delay=0.01)
+        def eventually_successful():
+            call_count[0] += 1
+            if call_count[0] < 3:
+                raise redis.ConnectionError("暫時失敗")
+            return "最終成功"
+        
+        result = eventually_successful()
+        assert result == "最終成功"
+        
+        # 檢查成功日誌
+        success_calls = [call for call in mock_logger.success.call_args_list 
+                        if "在第 3 次嘗試成功" in str(call)]
+        assert len(success_calls) == 1
+
+
+class TestWithRetryIntegration:
+    """with_retry 整合測試"""
+    
+    def test_with_redis_toolkit_methods(self):
+        """測試與 RedisToolkit 方法的整合"""
+        from redis_toolkit import RedisToolkit, RedisOptions
+        
+        # 創建一個模擬的 Redis 客戶端
+        mock_redis = Mock()
+        mock_redis.set.side_effect = [
+            redis.ConnectionError("第一次失敗"),
+            True  # 第二次成功
+        ]
+        
+        toolkit = RedisToolkit(redis=mock_redis, options=RedisOptions(
+            retry_attempts=2,
+            retry_delay=0.01,
+            retry_backoff=2
+        ))
+        
+        # setter 方法應該會重試
+        toolkit.setter("test_key", "test_value")
+        
+        # 驗證 set 被調用了兩次
+        assert mock_redis.set.call_count == 2
 
 
 if __name__ == "__main__":

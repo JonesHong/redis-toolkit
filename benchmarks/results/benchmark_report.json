@@ -1,0 +1,62 @@
+{
+  "test_suite": "Redis Toolkit Performance Benchmark Suite",
+  "version": "1.0.0",
+  "test_date": "2025-07-28 17:14:29",
+  "duration": 16.274229049682617,
+  "results": {
+    "batch_operations": {
+      "status": "completed",
+      "summary": {
+        "test_sizes": [
+          10,
+          50,
+          100,
+          500,
+          1000
+        ],
+        "average_improvements": {
+          "batch_vs_single": 15.605127476135047,
+          "pipeline_vs_single": 16.812640172880624
+        }
+      }
+    },
+    "serialization": {
+      "status": "completed",
+      "summary": {
+        "data_types_tested": 19,
+        "average_performance": {
+          "vs_json": {
+            "serialize": 1.7653383833849787,
+            "deserialize": 1.6438692348016526
+          },
+          "vs_pickle": {
+            "serialize": 62.406831264209416,
+            "deserialize": 46.37225692883529
+          }
+        }
+      }
+    },
+    "connection_pool": {
+      "status": "completed",
+      "summary": {
+        "single_thread_improvement": 0.9920693356091222,
+        "multi_thread_improvements": {
+          "5": 0.965004730447739,
+          "10": 0.9878287405959274,
+          "20": 1.0091796867793763,
+          "50": 1.0264478022101713
+        },
+        "connection_overhead_reduction": 5.215212041278662
+      }
+    }
+  },
+  "overall_summary": {
+    "total_tests": 3,
+    "successful_tests": 3,
+    "failed_tests": 0,
+    "key_findings": [
+      "批次操作平均提升 15.6x 性能",
+      "連接池減少連接開銷 5.2x"
+    ]
+  }
+}

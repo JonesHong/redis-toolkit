@@ -36,8 +36,10 @@
 - 🎵 **Media Processing**: Built-in converters for images, audio, and video files
 - 📡 **Pub/Sub Made Easy**: Simplified publish/subscribe with automatic JSON serialization
 - 🔧 **Flexible Configuration**: Support for custom Redis clients and connection settings
-- 🛡️ **Resilient Operations**: Built-in retry mechanisms and health checks
+- 🛡️ **Resilient Operations**: Built-in retry mechanisms with `@with_retry` decorator
 - 📦 **Batch Operations**: Efficient `batch_set` and `batch_get` for bulk operations
+- 🎨 **Pretty Logging**: Enhanced logging with pretty-loguru integration
+- 🔧 **Flexible Configuration**: Simple configuration with Python dataclasses
 
 ## 📦 Installation
 
@@ -67,8 +69,18 @@ pip install redis-toolkit[all]
 
 ```python
 from redis_toolkit import RedisToolkit
+from redis import Redis
 
-# Initialize toolkit
+# Method 1: Pass existing Redis instance
+redis_client = Redis(host='localhost', port=6379, decode_responses=False)
+toolkit = RedisToolkit(redis=redis_client)
+
+# Method 2: Use configuration (with connection pooling)
+from redis_toolkit import RedisConnectionConfig
+config = RedisConnectionConfig(host='localhost', port=6379)
+toolkit = RedisToolkit(config=config)
+
+# Method 3: Use defaults
 toolkit = RedisToolkit()
 
 # Store different data types
@@ -81,6 +93,10 @@ toolkit.setter("binary_data", b"Hello, World!")
 user = toolkit.getter("user")      # {'name': 'Alice', 'age': 25, 'active': True}
 scores = toolkit.getter("scores")  # [95, 87, 92, 88]
 flag = toolkit.getter("flag")      # True (bool, not string)
+
+# Access the underlying Redis client for advanced operations
+raw_value = toolkit.client.get("user")  # Get raw bytes
+toolkit.client.expire("user", 3600)     # Set TTL
 ```
 
 ### Media Processing with Converters
@@ -168,11 +184,24 @@ config = RedisConnectionConfig(
 options = RedisOptions(
     is_logger_info=True,
     max_log_size=512,
-    subscriber_retry_delay=10
+    subscriber_retry_delay=10,
+    log_level="INFO",  # Support for pretty-loguru
+    log_path="./logs"  # Optional file logging
 )
 
+# Method 1: With configuration
 toolkit = RedisToolkit(config=config, options=options)
+
+# Method 2: With existing Redis client
+import redis
+pool = redis.ConnectionPool(host='localhost', port=6379, db=0)
+redis_client = redis.Redis(connection_pool=pool)
+toolkit = RedisToolkit(redis=redis_client, options=options)
+
+# Access the underlying Redis client
+print(f"Redis server info: {toolkit.client.info()['redis_version']}")
 ```
+
 
 ### Batch Operations
 
@@ -295,8 +324,19 @@ RedisConnectionConfig(
     password=None,
     username=None,
     encoding='utf-8',
-    decode_responses=False,
-    socket_keepalive=True
+    decode_responses=False,     # Always False for proper serialization
+    socket_keepalive=True,
+    socket_keepalive_options=None,
+    connection_timeout=None,    # Connection timeout in seconds
+    socket_timeout=None,        # Socket operation timeout in seconds
+    retry_on_timeout=False,     # Retry on timeout
+    retry_on_error=True,        # Retry on error
+    health_check_interval=30,   # Health check interval in seconds
+    ssl=False,                  # Use SSL/TLS
+    ssl_keyfile=None,          # SSL key file path
+    ssl_certfile=None,         # SSL certificate file path
+    ssl_ca_certs=None,         # SSL CA certificates file path
+    ssl_cert_reqs='required'   # SSL certificate requirement level
 )
 ```
 
@@ -306,8 +346,31 @@ RedisOptions(
     is_logger_info=True,           # Enable logging
     max_log_size=256,              # Max log entry size
     subscriber_retry_delay=5,      # Subscriber reconnection delay
-    subscriber_stop_timeout=5      # Subscriber stop timeout
+    subscriber_stop_timeout=5,     # Subscriber stop timeout
+    log_level="INFO",              # Log level (DEBUG, INFO, WARNING, ERROR)
+    log_path=None,                 # Log file path (None for console only)
+    max_value_size=10*1024*1024,   # Max value size in bytes (10MB)
+    max_key_length=512,            # Max key length
+    enable_validation=True,        # Enable validation
+    use_connection_pool=True,      # Use shared connection pool
+    max_connections=None           # Max connections (None for unlimited)
 )
+```
+
+### Configuration Validation
+
+Both `RedisOptions` and `RedisConnectionConfig` support validation:
+
+```python
+# Validate configuration before use
+options = RedisOptions(log_level="DEBUG")
+options.validate()  # Raises ValueError if invalid
+
+config = RedisConnectionConfig(port=6379, ssl=True)
+config.validate()  # Raises ValueError if invalid
+
+# RedisToolkit automatically validates options on initialization
+toolkit = RedisToolkit(config=config, options=options)
 ```
 
 ## 📋 Requirements

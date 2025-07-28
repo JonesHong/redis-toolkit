@@ -10,6 +10,7 @@ from .core import RedisToolkit
 from .options import RedisOptions, RedisConnectionConfig, DEFAULT_OPTIONS
 from .exceptions import RedisToolkitError, SerializationError, ValidationError
 from .utils import simple_retry, serialize_value, deserialize_value
+from .pool_manager import pool_manager
 
 __version__ = "0.3.0"
 __author__ = "Redis Toolkit Team"
@@ -35,9 +36,13 @@ __all__ = [
     'serialize_value',
     'deserialize_value',
     
+    # 連接池管理
+    'pool_manager',
+    
     # 版本資訊
     '__version__',
 ]
+
 
 # 可選轉換器功能 - 延遲載入，避免強制依賴
 def _try_import_converters():
