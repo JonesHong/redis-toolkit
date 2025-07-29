@@ -1,5 +1,54 @@
 /* 全域樣式覆蓋 - 修復導航欄下拉選單 */
 
+/* 修復導航項目的紅色背景問題 - 使用更高優先級 */
+.navbar .links .nav-item,
+.navbar .nav-links .nav-item,
+.nav-item,
+.nav-item[class] {
+  background: transparent !important;
+  background-color: transparent !important;
+  color: #2c3e50 !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
+}
+
+/* 覆蓋所有可能的nav-item樣式 */
+div.nav-item,
+.navbar div.nav-item,
+.navbar .links div.nav-item {
+  background: transparent !important;
+  background-color: transparent !important;
+  display: inline-block !important;
+  padding: 0 !important;
+}
+
+.navbar .nav-item > a,
+.navbar .links .nav-item > a,
+.nav-item > a {
+  background: transparent !important;
+  background-color: transparent !important;
+  color: #2c3e50 !important;
+  padding: 0 1.5rem !important;
+  display: inline-block !important;
+  line-height: 2.2rem !important;
+  text-decoration: none !important;
+  border-radius: 0 !important;
+}
+
+.navbar .nav-item > a:hover,
+.navbar .links .nav-item > a:hover {
+  color: #dc382d !important;
+  background: transparent !important;
+  background-color: transparent !important;
+}
+
+/* 確保所有導航連結沒有紅色背景 */
+.navbar .nav-links .nav-item,
+.navbar .links > * {
+  background: none !important;
+  background-color: transparent !important;
+}
+
 /* 修復導航欄下拉選單背景和文字顏色 */
 .navbar .nav-dropdown {
   background-color: #fff !important;

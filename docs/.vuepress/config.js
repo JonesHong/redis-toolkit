@@ -20,7 +20,21 @@ module.exports = {
     ['meta', { name: 'mobile-web-app-capable', content: 'yes' }],
     ['meta', { name: 'apple-mobile-web-app-capable', content: 'yes' }],
     ['meta', { name: 'apple-mobile-web-app-status-bar-style', content: 'black' }],
-    ['link', { rel: 'stylesheet', href: '/override.css' }]
+    ['link', { rel: 'stylesheet', href: '/override.css' }],
+    ['style', {}, `
+      /* 緊急修復導航欄紅色背景 */
+      .nav-item, 
+      .navbar .nav-item,
+      .navbar .links .nav-item,
+      div.nav-item {
+        background: transparent !important;
+        background-color: transparent !important;
+      }
+      .nav-item > a {
+        background: transparent !important;
+        color: #2c3e50 !important;
+      }
+    `]
   ],
   
   themeConfig: {
