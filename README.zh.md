@@ -14,6 +14,9 @@
   <a href="https://github.com/JonesHong/redis-toolkit/blob/main/LICENSE">
     <img alt="License" src="https://img.shields.io/github/license/JonesHong/redis-toolkit.svg">
   </a>
+  <a href="https://joneshong.github.io/redis-toolkit/">
+    <img alt="Documentation" src="https://img.shields.io/badge/docs-stable-blue.svg">
+  </a>
   <a href="https://deepwiki.com/JonesHong/redis-toolkit"><img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki"></a>
 </p>
 
@@ -416,7 +419,7 @@ pytest -m integration  # 僅執行整合測試
 
 ## 📞 聯絡與支援
 
-- **文件**：[https://redis-toolkit.readthedocs.io](https://redis-toolkit.readthedocs.io)
+- **文件**：[https://joneshong.github.io/redis-toolkit/](https://joneshong.github.io/redis-toolkit/)
 - **問題**：[GitHub Issues](https://github.com/JonesHong/redis-toolkit/issues)
 - **討論**：[GitHub Discussions](https://github.com/JonesHong/redis-toolkit/discussions)
 - **PyPI**：[https://pypi.org/project/redis-toolkit/](https://pypi.org/project/redis-toolkit/)

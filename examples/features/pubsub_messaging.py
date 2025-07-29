@@ -89,7 +89,6 @@ def chat_room_example():
         # 格式化顯示
         timestamp = datetime.fromtimestamp(data["timestamp"]).strftime("%H:%M:%S")
         user = data["user"]
-        message = data["message"]
         
         # 特殊訊息類型
         if data.get("type") == "join":
@@ -97,6 +96,7 @@ def chat_room_example():
         elif data.get("type") == "leave":
             print(f"[{timestamp}] 💔 {user} 離開聊天室")
         else:
+            message = data["message"]
             print(f"[{timestamp}] {user}: {message}")
     
     # 創建聊天室訂閱者
@@ -285,24 +285,34 @@ def pattern_subscription():
     # 創建發布者
     publisher = RedisToolkit(options=RedisOptions(is_logger_info=False))
     
+    # 使用停止標誌來優雅地關閉線程
+    stop_flag = threading.Event()
+    
     # 在另一個線程中處理訊息
     def pattern_listener():
-        for message in pubsub.listen():
-            if message['type'] == 'pmessage':
-                channel = message['channel'].decode()
-                pattern = message['pattern'].decode()
-                
-                # 反序列化數據
-                from redis_toolkit.utils.serializers import deserialize_value
+        try:
+            while not stop_flag.is_set():
                 try:
-                    data = deserialize_value(message['data'])
-                    print(f"📨 模式: {pattern} | 頻道: {channel}")
-                    print(f"   資料: {data}")
-                except:
-                    pass
+                    message = pubsub.get_message(timeout=0.1)
+                    if message and message['type'] == 'pmessage':
+                        channel = message['channel'].decode()
+                        pattern = message['pattern'].decode()
+                        
+                        # 反序列化數據
+                        from redis_toolkit.utils.serializers import deserialize_value
+                        try:
+                            data = deserialize_value(message['data'])
+                            print(f"📨 模式: {pattern} | 頻道: {channel}")
+                            print(f"   資料: {data}")
+                        except:
+                            pass
+                except Exception:
+                    break
+        except:
+            pass
     
     # 啟動監聽線程
-    listener_thread = threading.Thread(target=pattern_listener, daemon=True)
+    listener_thread = threading.Thread(target=pattern_listener)
     listener_thread.start()
     
     time.sleep(0.5)
@@ -325,6 +335,10 @@ def pattern_subscription():
     # 等待處理完成
     time.sleep(1)
     
+    # 優雅地停止線程
+    stop_flag.set()
+    listener_thread.join(timeout=1)
+    
     # 清理
     pubsub.close()
     toolkit.cleanup()
@@ -335,12 +349,11 @@ def error_handling_pubsub():
     """發布訂閱錯誤處理範例"""
     print("\n=== 發布訂閱錯誤處理 ===\n")
     
-    error_count = 0
-    success_count = 0
+    # 使用可變容器來存儲計數，避免全域變數問題
+    counters = {"error": 0, "success": 0}
     
     def robust_handler(channel: str, data):
         """強健的訊息處理器"""
-        global error_count, success_count
         
         try:
             # 模擬可能出錯的處理邏輯
@@ -349,12 +362,12 @@ def error_handling_pubsub():
             
             # 正常處理
             print(f"✅ 成功處理來自 {channel} 的訊息")
-            success_count += 1
+            counters["success"] += 1
             
         except Exception as e:
             # 錯誤不會影響訂閱者繼續運行
             print(f"❌ 處理錯誤: {e}")
-            error_count += 1
+            counters["error"] += 1
     
     # 創建訂閱者
     subscriber = RedisToolkit(
@@ -384,9 +397,9 @@ def error_handling_pubsub():
     time.sleep(1)
     
     print(f"\n處理統計:")
-    print(f"  成功: {success_count}")
-    print(f"  錯誤: {error_count}")
-    print(f"  總計: {success_count + error_count}")
+    print(f"  成功: {counters['success']}")
+    print(f"  錯誤: {counters['error']}")
+    print(f"  總計: {counters['success'] + counters['error']}")
     print("\n💡 即使處理器出錯，訂閱者仍會繼續運行")
     
     # 清理
