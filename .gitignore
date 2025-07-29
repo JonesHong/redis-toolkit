@@ -111,3 +111,10 @@ Desktop.ini
 
 # Redis Toolkit specific (if any)
 redis-toolkit.log
+
+node_modules/
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+dist/
+build/s

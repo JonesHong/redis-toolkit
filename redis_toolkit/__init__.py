@@ -12,7 +12,7 @@ from .exceptions import RedisToolkitError, SerializationError, ValidationError
 from .utils import simple_retry, serialize_value, deserialize_value
 from .pool_manager import pool_manager
 
-__version__ = "0.3.0"
+__version__ = "0.3.2"
 __author__ = "Redis Toolkit Team"
 __description__ = "增強版 Redis 工具包，支援多類型資料自動序列化"
 

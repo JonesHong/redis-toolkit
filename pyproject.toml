@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "redis-toolkit"
-version = "0.3.0"
+version = "0.3.2"
 authors = [
   { name = "JonesHong", email = "latte831104@gmail.com" }
 ]
