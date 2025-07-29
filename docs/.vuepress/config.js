@@ -34,6 +34,37 @@ module.exports = {
         background: transparent !important;
         color: #2c3e50 !important;
       }
+      
+      /* 修復下拉選單消失問題 */
+      .navbar .dropdown-wrapper {
+        position: relative !important;
+        display: inline-block !important;
+      }
+      
+      .navbar .nav-dropdown {
+        position: absolute !important;
+        top: 100% !important;
+        right: 0 !important;
+        background: #fff !important;
+        min-width: 200px !important;
+        padding: 0.4rem 0 !important;
+        display: none;
+      }
+      
+      .navbar .dropdown-wrapper:hover .nav-dropdown {
+        display: block !important;
+      }
+      
+      /* 確保選單項目可點擊 */
+      .navbar .nav-dropdown .dropdown-item {
+        display: block !important;
+        padding: 0.4rem 1.5rem !important;
+        line-height: 1.4rem !important;
+      }
+      
+      .navbar .nav-dropdown .dropdown-item:hover {
+        background-color: #f3f4f5 !important;
+      }
     `]
   ],
   

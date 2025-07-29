@@ -54,6 +54,35 @@ div.nav-item,
   background-color: #fff !important;
   border: 1px solid #eaecef !important;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
+  z-index: 999 !important;
+  position: absolute !important;
+  top: 100% !important;
+  right: 0 !important;
+  margin-top: 0 !important;
+  border-radius: 4px !important;
+}
+
+/* 確保下拉選單容器正確定位 */
+.navbar .dropdown-wrapper {
+  position: relative !important;
+}
+
+/* 防止下拉選單過早消失 */
+.navbar .dropdown-wrapper:hover .nav-dropdown,
+.navbar .dropdown-wrapper .nav-dropdown:hover {
+  display: block !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+/* 增加觸發區域 */
+.navbar .dropdown-wrapper::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: -10px;
+  left: 0;
 }
 
 .navbar .nav-dropdown .dropdown-item {
