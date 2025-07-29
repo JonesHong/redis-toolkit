@@ -98,11 +98,7 @@ module.exports = {
               collapsable: false,
               sidebarDepth: 3,
               children: [
-                '',
-                'core',
-                'converters',
-                'options',
-                'utilities'
+                ''
               ]
             }
           ],
@@ -113,10 +109,7 @@ module.exports = {
               collapsable: false,
               sidebarDepth: 2,
               children: [
-                '',
-                'basic/',
-                'media/',
-                'real-world/'
+                ''
               ]
             }
           ]
@@ -192,11 +185,7 @@ module.exports = {
               collapsable: false,
               sidebarDepth: 3,
               children: [
-                '',
-                'core',
-                'converters',
-                'options',
-                'utilities'
+                ''
               ]
             }
           ],
@@ -207,10 +196,7 @@ module.exports = {
               collapsable: false,
               sidebarDepth: 2,
               children: [
-                '',
-                'basic/',
-                'media/',
-                'real-world/'
+                ''
               ]
             }
           ]
