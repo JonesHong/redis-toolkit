@@ -164,6 +164,35 @@ div[class*="language-"]
       color $redisRed
     &.router-link-active
       color $redisRed
+  
+  // 修復下拉選單樣式
+  .nav-dropdown
+    background-color #fff !important
+    border 1px solid $borderColor
+    border-radius 4px
+    box-shadow 0 2px 8px rgba(0, 0, 0, 0.1)
+    .dropdown-item
+      color $textColor !important
+      background-color transparent !important
+      &:hover
+        color $redisRed !important
+        background-color #f8f9fa !important
+      h4
+        color $textColor !important
+        border-top-color $borderColor !important
+    
+  // 確保語言選擇器正常顯示
+  .nav-links
+    a.nav-link, .dropdown-wrapper .dropdown-title
+      color $textColor !important
+      &:hover
+        color $redisRed !important
+    .nav-dropdown
+      .dropdown-item
+        a
+          color $textColor !important
+          &:hover
+            color $redisRed !important
 
 // 響應式設計
 @media (max-width: 719px)

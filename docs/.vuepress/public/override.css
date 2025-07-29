@@ -1,0 +1,76 @@
+/* 全域樣式覆蓋 - 修復導航欄下拉選單 */
+
+/* 修復導航欄下拉選單背景和文字顏色 */
+.navbar .nav-dropdown {
+  background-color: #fff !important;
+  border: 1px solid #eaecef !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
+}
+
+.navbar .nav-dropdown .dropdown-item {
+  color: #2c3e50 !important;
+  background-color: transparent !important;
+}
+
+.navbar .nav-dropdown .dropdown-item:hover {
+  color: #dc382d !important;
+  background-color: #f8f9fa !important;
+}
+
+.navbar .nav-dropdown .dropdown-item h4 {
+  color: #2c3e50 !important;
+  margin: 0.45rem 0 0 !important;
+  border-top: 1px solid #eaecef !important;
+  padding-top: 0.45rem !important;
+}
+
+/* 確保導航連結文字可見 */
+.navbar .nav-links a.nav-link,
+.navbar .nav-links .dropdown-wrapper .dropdown-title {
+  color: #2c3e50 !important;
+}
+
+.navbar .nav-links a.nav-link:hover,
+.navbar .nav-links .dropdown-wrapper .dropdown-title:hover {
+  color: #dc382d !important;
+}
+
+/* 修復語言選擇器 */
+.navbar .nav-links .nav-dropdown .dropdown-item a {
+  color: #2c3e50 !important;
+  text-decoration: none !important;
+}
+
+.navbar .nav-links .nav-dropdown .dropdown-item a:hover {
+  color: #dc382d !important;
+}
+
+/* 確保下拉箭頭可見 */
+.navbar .dropdown-wrapper .dropdown-title .arrow {
+  border-top-color: #2c3e50 !important;
+}
+
+.navbar .dropdown-wrapper:hover .dropdown-title .arrow,
+.navbar .dropdown-wrapper.open .dropdown-title .arrow {
+  border-top-color: #dc382d !important;
+}
+
+/* 移除可能的紅色背景 */
+.navbar .nav-item > a:not(.external) {
+  background-color: transparent !important;
+}
+
+/* 確保 "了解更多" 下拉選單正常顯示 */
+.navbar .nav-dropdown .dropdown-subitem-wrapper {
+  padding: 0 !important;
+}
+
+.navbar .nav-dropdown .dropdown-subitem {
+  font-size: 0.9em !important;
+  line-height: 1.7rem !important;
+  color: #2c3e50 !important;
+}
+
+.navbar .nav-dropdown .dropdown-subitem:hover {
+  color: #dc382d !important;
+}
