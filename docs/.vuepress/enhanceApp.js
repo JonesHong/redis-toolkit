@@ -11,7 +11,7 @@ export default ({
     Vue.config.errorHandler = (err, vm, info) => {
       // 忽略程式碼標籤相關錯誤
       if (err.message && err.message.includes("reading 'elm'")) {
-        console.warn('忽略程式碼標籤錯誤:', err);
+        // 靜默處理，不輸出到控制台
         return;
       }
       // 其他錯誤正常處理

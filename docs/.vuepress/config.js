@@ -214,45 +214,7 @@ module.exports = {
     }
   },
   
-  plugins: [
-    '@vuepress/back-to-top',
-    '@vuepress/medium-zoom',
-    ['vuepress-plugin-code-copy', {
-      align: 'top',
-      color: '#dc382d',
-      backgroundTransition: true,
-      backgroundColor: '#0075b8',
-      successText: '已複製！',
-      successTextColor: '#fff'
-    }],
-    ['@vuepress/search', {
-      searchMaxSuggestions: 10,
-      searchHotkeys: ['s', '/'],
-      getExtraFields: (page) => page.frontmatter.tags || [],
-      locales: {
-        '/': {
-          placeholder: '搜尋文檔'
-        },
-        '/en/': {
-          placeholder: 'Search docs'
-        }
-      },
-      // 根據當前語言過濾搜尋結果
-      test: (page, searchValue, locale) => {
-        // 獲取當前語言路徑
-        const currentLocale = locale || '/'
-        
-        // 檢查頁面路徑是否匹配當前語言
-        if (currentLocale === '/') {
-          // 中文版本：排除 /en/ 路徑
-          return !page.path.startsWith('/en/')
-        } else {
-          // 英文版本：只包含 /en/ 路徑
-          return page.path.startsWith(currentLocale)
-        }
-      }
-    }]
-  ],
+  plugins: require('./config/plugins.js'),
   
   markdown: {
     lineNumbers: true
