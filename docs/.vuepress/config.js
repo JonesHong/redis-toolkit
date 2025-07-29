@@ -87,17 +87,7 @@ module.exports = {
               children: [
                 '',
                 'media-processing',
-                'batch-operations',
-                'connection-pool'
-              ]
-            },
-            {
-              title: '最佳實踐',
-              collapsable: false,
-              sidebarDepth: 2,
-              children: [
-                'error-handling',
-                'performance'
+                'batch-operations'
               ]
             }
           ],
@@ -191,17 +181,7 @@ module.exports = {
               children: [
                 '',
                 'media-processing',
-                'batch-operations',
-                'connection-pool'
-              ]
-            },
-            {
-              title: 'Best Practices',
-              collapsable: false,
-              sidebarDepth: 2,
-              children: [
-                'error-handling',
-                'performance'
+                'batch-operations'
               ]
             }
           ],
