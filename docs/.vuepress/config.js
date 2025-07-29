@@ -98,7 +98,11 @@ module.exports = {
               collapsable: false,
               sidebarDepth: 3,
               children: [
-                ''
+                '',
+                'core',
+                'converters',
+                'options',
+                'utilities'
               ]
             }
           ],
@@ -185,7 +189,11 @@ module.exports = {
               collapsable: false,
               sidebarDepth: 3,
               children: [
-                ''
+                '',
+                'core',
+                'converters',
+                'options',
+                'utilities'
               ]
             }
           ],

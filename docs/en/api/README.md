@@ -1,6 +1,6 @@
 # API Reference
 
-Welcome to the Redis Toolkit API reference documentation. Here you'll find detailed information about all public classes, methods, and functions.
+Welcome to the Redis Toolkit API Reference. Here you'll find detailed documentation for all public classes, methods, and functions.
 
 ## 📚 API Documentation Organization
 
@@ -10,23 +10,23 @@ Welcome to the Redis Toolkit API reference documentation. Here you'll find detai
     <p>All methods of the RedisToolkit main class</p>
     <ul>
       <li>Initialization & Configuration</li>
-      <li>Basic Operation Methods</li>
+      <li>Basic Operations</li>
       <li>Batch Operations</li>
-      <li>Publish/Subscribe</li>
+      <li>Pub/Sub</li>
     </ul>
-    <a href="./core.html" class="api-link">View Documentation →</a>
+    <a href="./core.md" class="api-link">View Documentation →</a>
   </div>
   
   <div class="api-card">
     <h3>🎨 Converters API</h3>
-    <p>Media processing related converters</p>
+    <p>Media processing converters</p>
     <ul>
-      <li>Image Converter</li>
-      <li>Audio Converter</li>
-      <li>Video Converter</li>
-      <li>Common Interface</li>
+      <li>Image Converters</li>
+      <li>Audio Converters</li>
+      <li>Video Converters</li>
+      <li>Common Interfaces</li>
     </ul>
-    <a href="./converters.html" class="api-link">View Documentation →</a>
+    <a href="./converters.md" class="api-link">View Documentation →</a>
   </div>
   
   <div class="api-card">
@@ -38,45 +38,45 @@ Welcome to the Redis Toolkit API reference documentation. Here you'll find detai
       <li>Default Configuration</li>
       <li>Validation Methods</li>
     </ul>
-    <a href="./options.html" class="api-link">View Documentation →</a>
+    <a href="./options.md" class="api-link">View Documentation →</a>
   </div>
   
   <div class="api-card">
     <h3>🛠️ Utility Functions</h3>
-    <p>Utilities and helper functions</p>
+    <p>Utility and helper functions</p>
     <ul>
       <li>Serialization Functions</li>
       <li>Retry Decorators</li>
       <li>Validation Tools</li>
       <li>Exception Classes</li>
     </ul>
-    <a href="./utilities.html" class="api-link">View Documentation →</a>
+    <a href="./utilities.md" class="api-link">View Documentation →</a>
   </div>
 </div>
 
 ## 🎯 Quick Navigation
 
-### Most Commonly Used APIs
+### Most Used APIs
 
 ```python
-# Core classes
+# Core Classes
 from redis_toolkit import RedisToolkit
 
-# Configuration classes
+# Configuration Classes
 from redis_toolkit import RedisConnectionConfig, RedisOptions
 
-# Converter functions
+# Converter Functions
 from redis_toolkit.converters import (
     encode_image, decode_image,
     encode_audio, decode_audio,
     get_converter
 )
 
-# Utility functions
+# Utility Functions
 from redis_toolkit.utils import serialize_value, deserialize_value
 from redis_toolkit.utils import with_retry
 
-# Exception classes
+# Exception Classes
 from redis_toolkit.exceptions import (
     RedisToolkitError,
     SerializationError,
@@ -84,190 +84,111 @@ from redis_toolkit.exceptions import (
 )
 ```
 
-## 📖 API Usage Examples
-
-### Basic Initialization
+### Quick Start Examples
 
 ```python
-# Method 1: Using default configuration
+from redis_toolkit import RedisToolkit
+
+# Create Instance
 toolkit = RedisToolkit()
 
-# Method 2: Custom configuration
-config = RedisConnectionConfig(host='localhost', port=6379)
-options = RedisOptions(is_logger_info=True)
-toolkit = RedisToolkit(config=config, options=options)
+# Basic Operations
+toolkit.set('key', {'data': 'value'})
+value = toolkit.get('key')
 
-# Method 3: Using existing Redis client
-import redis
-client = redis.Redis()
-toolkit = RedisToolkit(redis=client)
+# Batch Operations
+toolkit.batch_set({
+    'key1': 'value1',
+    'key2': {'nested': 'data'}
+})
+
+# Pub/Sub
+def handler(channel, message):
+    print(f"Received: {message}")
+
+subscriber = toolkit.subscribe('channel', handler=handler)
+toolkit.publish('channel', 'Hello, Redis!')
 ```
 
-### Common Operations
+## 📖 Usage Patterns
+
+### Context Manager Pattern
 
 ```python
-# Store and retrieve data
-toolkit.setter("key", {"data": "value"})
-data = toolkit.getter("key")
+from redis_toolkit import RedisToolkit
 
-# Batch operations
-batch_data = {"key1": "value1", "key2": "value2"}
-toolkit.batch_set(batch_data)
-results = toolkit.batch_get(["key1", "key2"])
-
-# Publish/Subscribe
-toolkit.publisher("channel", {"message": "Hello"})
-```
-
-### Media Processing
-
-```python
-# Image processing
-img_bytes = encode_image(image_array, format='jpg')
-decoded_img = decode_image(img_bytes)
-
-# Using converters
-converter = get_converter('image')
-resized = converter.resize(image_array, width=800)
-```
-
-## 🔍 API Design Principles
-
-### 1. Simple and Intuitive
-
-Our API design follows the "simplicity first" principle:
-
-```python
-# ✅ Simple and clear
-toolkit.setter("key", value)
-toolkit.getter("key")
-
-# ❌ Overly complex
-toolkit.storage.persistence.set_with_options("key", value, options={...})
-```
-
-### 2. Consistency
-
-All APIs maintain consistent naming and behavior patterns:
-
-- `setter` / `getter` - Basic access
-- `batch_set` / `batch_get` - Batch operations
-- `encode_*` / `decode_*` - Encoding/Decoding
-
-### 3. Error Handling
-
-Unified exception system for easy error handling:
-
-```python
-try:
-    toolkit.setter("key", problematic_value)
-except SerializationError:
-    # Handle serialization errors
-except ValidationError:
-    # Handle validation errors
-except RedisToolkitError:
-    # Handle other errors
-```
-
-## 📊 API Versioning and Compatibility
-
-### Versioning Strategy
-
-We follow Semantic Versioning:
-
-- **Major version**: Incompatible API changes
-- **Minor version**: Backwards-compatible functionality additions
-- **Patch version**: Backwards-compatible bug fixes
-
-### Deprecation Policy
-
-When an API needs to be deprecated:
-
-1. Mark as `@deprecated` in documentation
-2. Issue deprecation warnings
-3. Maintain for at least two minor versions
-4. Provide migration guides
-
-```python
-# Deprecation example
-@deprecated("Use toolkit.setter instead")
-def set_value(key, value):
-    warnings.warn("set_value is deprecated, use setter", DeprecationWarning)
-    return toolkit.setter(key, value)
-```
-
-## 🎯 API Best Practices
-
-### 1. Use Type Hints
-
-```python
-from typing import Dict, Any, Optional
-
-def process_data(
-    key: str,
-    data: Dict[str, Any],
-    ttl: Optional[int] = None
-) -> bool:
-    """Process and store data"""
-    return toolkit.setter(key, data, ex=ttl)
-```
-
-### 2. Parameter Validation
-
-```python
-# Use configuration class validation
-config = RedisConnectionConfig(port=6379)
-config.validate()  # Ensure configuration is valid
-
-# Custom validation
-if not isinstance(data, (dict, list)):
-    raise ValidationError("Data must be dict or list")
-```
-
-### 3. Resource Management
-
-```python
-# Using context manager
+# Automatic resource cleanup
 with RedisToolkit() as toolkit:
-    toolkit.setter("key", "value")
-    # Automatic resource cleanup
-
-# Manual cleanup
-toolkit = RedisToolkit()
-try:
-    # Use toolkit
-finally:
-    toolkit.cleanup()
+    toolkit.set('temp', 'data')
+    value = toolkit.get('temp')
 ```
 
-## 📚 Deep Dive
+### Custom Configuration
 
-Choose the appropriate API documentation based on your needs:
+```python
+from redis_toolkit import RedisToolkit, RedisConnectionConfig, RedisOptions
 
-<div class="api-nav">
-  <a href="./core.html" class="nav-item">
-    <span class="icon">🔧</span>
-    <span>Core API</span>
-  </a>
-  <a href="./converters.html" class="nav-item">
-    <span class="icon">🎨</span>
-    <span>Converters API</span>
-  </a>
-  <a href="./options.html" class="nav-item">
-    <span class="icon">⚙️</span>
-    <span>Configuration API</span>
-  </a>
-  <a href="./utilities.html" class="nav-item">
-    <span class="icon">🛠️</span>
-    <span>Utility Functions</span>
-  </a>
-</div>
+# Connection configuration
+config = RedisConnectionConfig(
+    host='redis.example.com',
+    port=6379,
+    password='secure_password'
+)
 
-::: tip Tips
-- Use your IDE's auto-completion to explore the API
-- Check the source code for implementation details
-- Refer to example code to learn best practices
-:::
+# Behavior options
+options = RedisOptions(
+    log_level='INFO',
+    use_connection_pool=True
+)
+
+# Create with custom config
+toolkit = RedisToolkit(config=config, options=options)
+```
+
+### Error Handling
+
+```python
+from redis_toolkit.exceptions import SerializationError, ValidationError
+
+try:
+    toolkit.set('key', complex_object)
+except SerializationError as e:
+    print(f"Serialization failed: {e}")
+except ValidationError as e:
+    print(f"Validation failed: {e}")
+```
+
+## 📦 Optional Dependencies
+
+Different features require different optional dependencies:
+
+```bash
+# Image processing
+pip install redis-toolkit[image]
+
+# Audio processing  
+pip install redis-toolkit[audio]
+
+# Full media support
+pip install redis-toolkit[media]
+
+# All features
+pip install redis-toolkit[all]
+```
+
+## 🔍 Finding What You Need
+
+1. **Basic Redis Operations** → [Core API](./core.md)
+2. **Media Processing** → [Converters API](./converters.md)
+3. **Configuration** → [Configuration API](./options.md)
+4. **Error Handling** → [Utility Functions](./utilities.md)
+
+## 📚 Additional Resources
+
+- [Getting Started Guide](/en/guide/)
+- [Advanced Features](/en/advanced/)
+- [Examples](/en/examples/)
+- [GitHub Repository](https://github.com/JonesHong/redis-toolkit)
 
 <style>
 .api-categories {
@@ -278,74 +199,37 @@ Choose the appropriate API documentation based on your needs:
 }
 
 .api-card {
-  background: #f8f9fa;
-  border: 1px solid #e9ecef;
+  background: #f7f7f7;
+  border: 1px solid #e3e3e3;
   border-radius: 8px;
   padding: 1.5rem;
-  transition: all 0.2s;
+  transition: all 0.3s ease;
 }
 
 .api-card:hover {
-  transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-  border-color: #dc382d;
+  transform: translateY(-2px);
 }
 
 .api-card h3 {
-  color: #dc382d;
   margin-top: 0;
-  margin-bottom: 0.5rem;
-}
-
-.api-card p {
-  color: #666;
-  margin-bottom: 1rem;
+  color: #dc382d;
 }
 
 .api-card ul {
-  margin: 0 0 1rem 0;
-  padding-left: 1.2rem;
-  color: #555;
-  font-size: 0.9rem;
+  margin: 0.5rem 0;
+  padding-left: 1.5rem;
 }
 
 .api-link {
   display: inline-block;
+  margin-top: 1rem;
   color: #dc382d;
+  font-weight: bold;
   text-decoration: none;
-  font-weight: 500;
-  transition: transform 0.2s;
 }
 
 .api-link:hover {
-  transform: translateX(3px);
-}
-
-.api-nav {
-  display: flex;
-  gap: 1rem;
-  margin: 2rem 0;
-  flex-wrap: wrap;
-}
-
-.nav-item {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.8rem 1.5rem;
-  background: #dc382d;
-  color: white;
-  text-decoration: none;
-  border-radius: 4px;
-  transition: all 0.2s;
-}
-
-.nav-item:hover {
-  background: #e85d52;
-  transform: translateY(-2px);
-}
-
-.nav-item .icon {
-  font-size: 1.2rem;
+  text-decoration: underline;
 }
 </style>

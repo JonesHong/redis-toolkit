@@ -14,7 +14,7 @@
       <li>批次操作</li>
       <li>發布訂閱</li>
     </ul>
-    <a href="./core.html" class="api-link">查看文檔 →</a>
+    <a href="./core.md" class="api-link">查看文檔 →</a>
   </div>
   
   <div class="api-card">
@@ -26,7 +26,7 @@
       <li>視頻轉換器</li>
       <li>通用介面</li>
     </ul>
-    <a href="./converters.html" class="api-link">查看文檔 →</a>
+    <a href="./converters.md" class="api-link">查看文檔 →</a>
   </div>
   
   <div class="api-card">
@@ -38,7 +38,7 @@
       <li>預設配置</li>
       <li>驗證方法</li>
     </ul>
-    <a href="./options.html" class="api-link">查看文檔 →</a>
+    <a href="./options.md" class="api-link">查看文檔 →</a>
   </div>
   
   <div class="api-card">
@@ -50,7 +50,7 @@
       <li>驗證工具</li>
       <li>異常類別</li>
     </ul>
-    <a href="./utilities.html" class="api-link">查看文檔 →</a>
+    <a href="./utilities.md" class="api-link">查看文檔 →</a>
   </div>
 </div>
 
