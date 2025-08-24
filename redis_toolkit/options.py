@@ -36,6 +36,13 @@ class RedisOptions:
     retry_delay: float = 0.1                 # 初始重試延遲（秒）
     retry_backoff: float = 2.0               # 重試退避因子（指數退避）
     
+    # 動態訂閱管理相關
+    enable_dynamic_subscription: bool = True  # 是否啟用動態訂閱管理器
+    subscription_expire_minutes: float = 5.0  # 訂閱過期時間（分鐘）
+    subscription_check_interval: float = 30.0 # 過期檢查間隔（秒）
+    subscription_auto_cleanup: bool = True    # 是否自動清理過期記錄
+    subscription_max_expired: int = 100       # 最多保留的過期記錄數
+    
     def validate(self) -> None:
         """
         驗證配置的有效性

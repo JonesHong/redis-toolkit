@@ -18,6 +18,7 @@ from .exceptions import RedisToolkitError, SerializationError, ValidationError, 
 from .utils.serializers import serialize_value, deserialize_value
 from .utils.retry import simple_retry, with_retry
 from .pool_manager import pool_manager
+from .subscription_manager import SubscriptionManager
 
 # 使用 pretty-loguru 設定日誌
 logger = create_logger(
@@ -90,8 +91,24 @@ class RedisToolkit:
             self._init_redis_client(config)
 
         # 發布訂閱相關
-        self._channels = channels
+        self._channels = channels or []
         self._message_handler = message_handler
+        
+        # 動態訂閱管理器
+        self._subscription_manager: Optional[SubscriptionManager] = None
+        
+        # 初始化動態訂閱管理器（根據 options 配置）
+        if self.options.enable_dynamic_subscription:
+            self._subscription_manager = SubscriptionManager(
+                expire_minutes=self.options.subscription_expire_minutes,
+                check_interval=self.options.subscription_check_interval,
+                auto_cleanup=self.options.subscription_auto_cleanup
+            )
+            logger.debug(
+                f"動態訂閱管理器已創建: "
+                f"過期={self.options.subscription_expire_minutes}分鐘, "
+                f"檢查間隔={self.options.subscription_check_interval}秒"
+            )
 
         if channels and message_handler:
             self._start_subscriber()
@@ -123,6 +140,46 @@ class RedisToolkit:
     def client(self) -> Redis:
         """取得原生 Redis 客戶端，用於呼叫未封裝的方法"""
         return self._redis_client
+    
+    @property
+    def subscription_manager(self) -> Optional[SubscriptionManager]:
+        """取得動態訂閱管理器"""
+        return self._subscription_manager
+    
+    def set_subscription_manager(self, manager: Optional[SubscriptionManager]) -> None:
+        """
+        設定或替換訂閱管理器
+        
+        參數:
+            manager: 新的訂閱管理器實例，或 None 來停用
+            
+        使用範例:
+            # 方式1: 替換為自訂配置的管理器
+            new_manager = SubscriptionManager(
+                expire_minutes=10.0,
+                check_interval=60.0
+            )
+            toolkit.set_subscription_manager(new_manager)
+            
+            # 方式2: 停用動態訂閱
+            toolkit.set_subscription_manager(None)
+        """
+        # 停止舊的管理器
+        if self._subscription_manager:
+            self._subscription_manager.stop()
+            logger.debug("停止舊的訂閱管理器")
+        
+        # 設定新的管理器
+        self._subscription_manager = manager
+        
+        if manager:
+            logger.info(
+                f"設定新的訂閱管理器: "
+                f"過期={manager.expire_minutes}分鐘, "
+                f"檢查間隔={manager.check_interval}秒"
+            )
+        else:
+            logger.info("動態訂閱管理器已停用")
 
     def __enter__(self):
         """上下文管理器進入點"""
@@ -471,6 +528,126 @@ class RedisToolkit:
             raise SerializationError(
                 f"發布到頻道 '{channel}' 失敗", original_data=data, original_exception=e
             ) from e
+    
+    def subscribe_dynamic(
+        self,
+        channel: str,
+        callback: Callable[[str, Any], None]
+    ) -> bool:
+        """
+        動態訂閱頻道
+        
+        參數:
+            channel: 頻道名稱
+            callback: 訊息處理回調函數
+            
+        返回:
+            bool: 訂閱是否成功
+        """
+        if not self._subscription_manager:
+            logger.error("動態訂閱管理器未啟用")
+            return False
+        
+        # 添加到訂閱管理器
+        success = self._subscription_manager.subscribe_dynamic(channel, callback)
+        
+        if success:
+            # 確保該頻道也在 Redis 訂閱列表中
+            if channel not in self._channels:
+                self._channels.append(channel)
+                # 如果訂閱者執行緒正在運行，需要重新訂閱
+                if self.sub_thread and self.sub_thread.is_alive():
+                    # 觸發重新訂閱（簡單方式：重啟訂閱者）
+                    logger.debug(f"動態新增頻道 '{channel}'，重啟訂閱者")
+                    self.stop_subscriber()
+                    self._start_subscriber()
+                elif not self.sub_thread:
+                    # 如果沒有訂閱者執行緒，啟動它
+                    self._start_subscriber()
+        
+        return success
+    
+    def unsubscribe_dynamic(self, channel: str) -> bool:
+        """
+        動態取消訂閱頻道
+        
+        參數:
+            channel: 頻道名稱
+            
+        返回:
+            bool: 取消訂閱是否成功
+        """
+        if not self._subscription_manager:
+            logger.error("動態訂閱管理器未啟用")
+            return False
+        
+        # 從訂閱管理器移除
+        success = self._subscription_manager.unsubscribe_dynamic(channel)
+        
+        if success and channel in self._channels:
+            self._channels.remove(channel)
+            # 如果沒有頻道了，停止訂閱者
+            if not self._channels and self.sub_thread:
+                logger.debug("沒有活躍頻道，停止訂閱者")
+                self.stop_subscriber()
+        
+        return success
+    
+    def get_subscription_stats(self) -> Dict[str, Any]:
+        """
+        獲取訂閱統計資訊
+        
+        返回:
+            統計資訊字典
+        """
+        if not self._subscription_manager:
+            return {
+                'enabled': False,
+                'message': '動態訂閱管理器未啟用'
+            }
+        
+        stats = self._subscription_manager.get_statistics()
+        stats['enabled'] = True
+        stats['static_channels'] = len(self._channels)
+        return stats
+    
+    def get_expired_channels(self) -> Dict[str, Dict[str, Any]]:
+        """
+        獲取過期頻道列表
+        
+        返回:
+            過期頻道字典
+        """
+        if not self._subscription_manager:
+            return {}
+        
+        return self._subscription_manager.get_expired_channels()
+    
+    def resubscribe_channel(self, channel: str) -> bool:
+        """
+        續訂過期頻道
+        
+        參數:
+            channel: 頻道名稱
+            
+        返回:
+            bool: 續訂是否成功
+        """
+        if not self._subscription_manager:
+            logger.error("動態訂閱管理器未啟用")
+            return False
+        
+        success = self._subscription_manager.resubscribe(channel)
+        
+        if success and channel not in self._channels:
+            self._channels.append(channel)
+            # 重啟訂閱者以包含新頻道
+            if self.sub_thread and self.sub_thread.is_alive():
+                logger.debug(f"續訂頻道 '{channel}'，重啟訂閱者")
+                self.stop_subscriber()
+                self._start_subscriber()
+        
+        return success
 
 
     def _start_subscriber(self) -> None:
@@ -592,7 +769,17 @@ class RedisToolkit:
                 log_content = self._format_log(parsed_data, self.options.max_log_size)
                 logger.info(f"訂閱 '{channel}': {log_content}")
 
-            # 呼叫訊息處理器
+            # 更新動態訂閱管理器的活動時間
+            if self._subscription_manager:
+                self._subscription_manager.update_activity(channel)
+                
+                # 優先使用動態訂閱的回調
+                dynamic_callback = self._subscription_manager.get_channel_callback(channel)
+                if dynamic_callback:
+                    dynamic_callback(channel, parsed_data)
+                    return
+            
+            # 使用預設訊息處理器
             if self._message_handler:
                 self._message_handler(channel, parsed_data)
 
@@ -692,6 +879,11 @@ class RedisToolkit:
         """清理資源，改進版本"""
         # 停止訂閱者
         self.stop_subscriber()
+        
+        # 停止動態訂閱管理器
+        if self._subscription_manager:
+            self._subscription_manager.stop()
+            logger.debug("動態訂閱管理器已停止")
 
         # 明確關閉 Redis 連線
         if hasattr(self, "_redis_client") and self._redis_client:
